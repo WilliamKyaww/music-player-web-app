@@ -12,7 +12,7 @@ from uuid import uuid4
 from app.core.config import get_settings
 from app.models.downloads import DownloadRequest
 from app.models.exports import PlaylistExportJob
-from app.models.playlists import Playlist
+from app.models.playlists import Playlist, PlaylistItem
 from app.services.downloads import DownloadManager, DownloadRuntimeError, get_download_manager
 from app.services.playlists import PlaylistError, get_playlist_manager
 
@@ -126,8 +126,27 @@ class PlaylistExportManager:
             raise ExportError("Playlist not found.", status_code=404)
         if not playlist.items:
             raise ExportError("Add at least one song before exporting the playlist.", status_code=409)
+        return self.create_external_export(
+            playlist_id=playlist.id,
+            playlist_name=playlist.name,
+            items=playlist.items,
+            delete_previous_exports_for_playlist=delete_previous_exports_for_playlist,
+            export_format=export_format,
+        )
+
+    def create_external_export(
+        self,
+        *,
+        playlist_id: str,
+        playlist_name: str,
+        items: list[PlaylistItem],
+        delete_previous_exports_for_playlist: bool,
+        export_format: str,
+    ) -> PlaylistExportJob:
         if export_format not in {"zip", "combined_mp3"}:
             raise ExportError("Unsupported export format requested.", status_code=400)
+        if not items:
+            raise ExportError("Add at least one song before exporting.", status_code=409)
 
         with self._lock:
             if delete_previous_exports_for_playlist:
@@ -137,21 +156,29 @@ class PlaylistExportManager:
             timestamp = _utc_now()
             record = _ExportRecord(
                 id=export_id,
-                playlist_id=playlist.id,
-                playlist_name=playlist.name,
+                playlist_id=playlist_id,
+                playlist_name=playlist_name,
                 export_format=export_format,
                 status="queued",
                 status_detail="Waiting for export worker slot.",
                 progress_percent=0,
                 created_at=timestamp,
                 updated_at=timestamp,
-                item_count=len(playlist.items),
+                item_count=len(items),
                 completed_item_count=0,
             )
             self._exports[export_id] = record
             self._persist_unlocked()
 
-        asyncio.create_task(self._run_export(export_id, playlist))
+        ephemeral_playlist = Playlist(
+            id=playlist_id,
+            name=playlist_name,
+            created_at=timestamp,
+            updated_at=timestamp,
+            items=items,
+        )
+
+        asyncio.create_task(self._run_export(export_id, ephemeral_playlist))
         return record.to_public_model()
 
     async def _run_export(self, export_id: str, playlist: Playlist) -> None:

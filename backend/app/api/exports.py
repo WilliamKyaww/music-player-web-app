@@ -39,7 +39,7 @@ async def get_export_file(export_id: str) -> FileResponse:
 
     return FileResponse(
         path=file_path,
-        media_type="application/zip",
+        media_type="audio/mpeg" if file_path.suffix.lower() == ".mp3" else "application/zip",
         filename=export.file_name or file_path.name,
     )
 

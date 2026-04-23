@@ -27,10 +27,13 @@ import { SearchBar } from './components/SearchBar'
 import { SpotifyImportPanel } from './components/SpotifyImportPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { VideoCard } from './components/VideoCard'
+import { YouTubePlaylistDownloadPanel } from './components/YouTubePlaylistDownloadPanel'
+import { createYouTubePlaylistExport } from './api/youtubePlaylists'
 import type {
   DownloadJob,
   DownloadRuntimeStatus,
   Playlist,
+  PlaylistExportFormat,
   PlaylistExportJob,
   SpotifyPlaylistPreview,
   VideoSearchResult,
@@ -69,6 +72,8 @@ function App() {
     null,
   )
   const [isLoadingSpotifyPreview, setIsLoadingSpotifyPreview] = useState(false)
+  const [isCreatingYouTubePlaylistExport, setIsCreatingYouTubePlaylistExport] =
+    useState(false)
   const [pendingPlaylistVideoId, setPendingPlaylistVideoId] = useState<string | null>(
     null,
   )
@@ -448,6 +453,29 @@ function App() {
     }
   })
 
+  const handleCreateYouTubePlaylistExport = useEffectEvent(
+    async (playlistUrl: string, exportFormat: PlaylistExportFormat) => {
+      setIsCreatingYouTubePlaylistExport(true)
+      try {
+        const exportJob = await createYouTubePlaylistExport(playlistUrl, exportFormat)
+        startTransition(() => {
+          setExportJobs((current) => [exportJob, ...current.filter((job) => job.id !== exportJob.id)])
+          setExportsErrorMessage(null)
+        })
+        void loadExports()
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not start YouTube playlist export.'
+
+        startTransition(() => {
+          setExportsErrorMessage(message)
+        })
+      } finally {
+        setIsCreatingYouTubePlaylistExport(false)
+      }
+    },
+  )
+
   const handleRemoveExport = useEffectEvent(
     async (exportJob: PlaylistExportJob, deleteFile: boolean) => {
       setPendingExportRemovalIds((current) =>
@@ -662,6 +690,15 @@ function App() {
           isCreatingExport={isCreatingExport}
           pendingRemovalIds={pendingExportRemovalIds}
           onCreateExport={handleCreateExport}
+          onRemoveExport={handleRemoveExport}
+        />
+
+        <YouTubePlaylistDownloadPanel
+          exportJobs={exportJobs}
+          errorMessage={exportsErrorMessage}
+          isCreating={isCreatingYouTubePlaylistExport}
+          pendingRemovalIds={pendingExportRemovalIds}
+          onCreateExport={handleCreateYouTubePlaylistExport}
           onRemoveExport={handleRemoveExport}
         />
 
