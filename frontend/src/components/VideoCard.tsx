@@ -1,10 +1,56 @@
-import type { VideoSearchResult } from '../types'
+import type { DownloadJob, VideoSearchResult } from '../types'
 
 type VideoCardProps = {
   video: VideoSearchResult
+  onDownload: (video: VideoSearchResult) => void
+  isSubmittingDownload: boolean
+  latestDownload: DownloadJob | null
 }
 
-export function VideoCard({ video }: VideoCardProps) {
+function getDownloadButtonLabel(
+  latestDownload: DownloadJob | null,
+  isSubmittingDownload: boolean,
+) {
+  if (isSubmittingDownload) {
+    return 'Queueing...'
+  }
+
+  if (!latestDownload) {
+    return 'Download MP3'
+  }
+
+  if (latestDownload.status === 'queued') {
+    return 'Queued'
+  }
+
+  if (latestDownload.status === 'downloading') {
+    return `Downloading ${latestDownload.progress_percent}%`
+  }
+
+  if (latestDownload.status === 'converting') {
+    return 'Converting...'
+  }
+
+  if (latestDownload.status === 'completed') {
+    return 'Downloaded'
+  }
+
+  return 'Retry MP3'
+}
+
+export function VideoCard({
+  video,
+  onDownload,
+  isSubmittingDownload,
+  latestDownload,
+}: VideoCardProps) {
+  const isDownloadBusy =
+    isSubmittingDownload ||
+    latestDownload?.status === 'queued' ||
+    latestDownload?.status === 'downloading' ||
+    latestDownload?.status === 'converting' ||
+    latestDownload?.status === 'completed'
+
   return (
     <article className="video-card">
       <a
@@ -43,17 +89,22 @@ export function VideoCard({ video }: VideoCardProps) {
           className="video-card__button"
           type="button"
           disabled
-          title="Phase 2 will add playlist support."
+          title="Phase 3 will add playlist support."
         >
           Playlist
         </button>
         <button
-          className="video-card__button"
+          className={`video-card__button ${latestDownload ? `video-card__button--${latestDownload.status}` : ''}`}
           type="button"
-          disabled
-          title="Phase 2 will add MP3 download jobs."
+          disabled={isDownloadBusy}
+          title={
+            latestDownload?.status === 'completed'
+              ? 'Use the queue panel to save the finished MP3.'
+              : undefined
+          }
+          onClick={() => onDownload(video)}
         >
-          Download MP3
+          {getDownloadButtonLabel(latestDownload, isSubmittingDownload)}
         </button>
       </div>
     </article>

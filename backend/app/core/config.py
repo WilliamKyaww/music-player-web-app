@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_default_max_results: int = 12
     request_timeout_seconds: float = 15.0
+    downloads_dir: Path = Field(
+        default=BACKEND_DIR / "data" / "downloads",
+        alias="DOWNLOADS_DIR",
+    )
+    max_concurrent_downloads: int = Field(default=2, alias="MAX_CONCURRENT_DOWNLOADS")
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

@@ -1,9 +1,15 @@
 import { startTransition, useEffect, useEffectEvent, useState } from 'react'
+import { enqueueDownload, fetchDownloads } from './api/downloads'
 import { searchVideos } from './api/search'
+import { DownloadQueuePanel } from './components/DownloadQueuePanel'
 import { SearchBar } from './components/SearchBar'
 import { StatusPanel } from './components/StatusPanel'
 import { VideoCard } from './components/VideoCard'
-import type { VideoSearchResult } from './types'
+import type {
+  DownloadJob,
+  DownloadRuntimeStatus,
+  VideoSearchResult,
+} from './types'
 import './App.css'
 
 function App() {
@@ -14,6 +20,14 @@ function App() {
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [activeQuery, setActiveQuery] = useState('')
+  const [downloadJobs, setDownloadJobs] = useState<DownloadJob[]>([])
+  const [downloadRuntime, setDownloadRuntime] = useState<DownloadRuntimeStatus | null>(
+    null,
+  )
+  const [downloadsErrorMessage, setDownloadsErrorMessage] = useState<string | null>(
+    null,
+  )
+  const [pendingDownloadVideoIds, setPendingDownloadVideoIds] = useState<string[]>([])
 
   const runSearch = useEffectEvent(async (nextQuery: string, signal: AbortSignal) => {
     setStatus('loading')
@@ -48,6 +62,61 @@ function App() {
     }
   })
 
+  const loadDownloads = useEffectEvent(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetchDownloads(signal)
+      startTransition(() => {
+        setDownloadJobs(response.items)
+        setDownloadRuntime(response.runtime)
+        setDownloadsErrorMessage(null)
+      })
+    } catch (error) {
+      if (signal?.aborted) {
+        return
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not refresh the download queue.'
+
+      startTransition(() => {
+        setDownloadsErrorMessage(message)
+      })
+    }
+  })
+
+  const handleDownload = useEffectEvent(async (video: VideoSearchResult) => {
+    setPendingDownloadVideoIds((current) =>
+      current.includes(video.id) ? current : [...current, video.id],
+    )
+
+    try {
+      const response = await enqueueDownload(video)
+
+      startTransition(() => {
+        setDownloadJobs((current) => {
+          const remaining = current.filter((item) => item.id !== response.job.id)
+          return [response.job, ...remaining]
+        })
+        setDownloadsErrorMessage(null)
+      })
+
+      void loadDownloads()
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not start the MP3 download.'
+
+      startTransition(() => {
+        setDownloadsErrorMessage(message)
+      })
+    } finally {
+      setPendingDownloadVideoIds((current) =>
+        current.filter((videoId) => videoId !== video.id),
+      )
+    }
+  })
+
   useEffect(() => {
     const trimmedQuery = query.trim()
 
@@ -78,34 +147,64 @@ function App() {
     }
   }, [query])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadDownloads(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
   const hasShortQuery = query.trim().length > 0 && query.trim().length < 2
+  const hasActiveDownloads = downloadJobs.some((job) =>
+    ['queued', 'downloading', 'converting'].includes(job.status),
+  )
+
+  useEffect(() => {
+    if (!hasActiveDownloads) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadDownloads()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [hasActiveDownloads])
+
+  function getLatestDownloadForVideo(videoId: string) {
+    return downloadJobs.find((job) => job.video_id === videoId) ?? null
+  }
 
   return (
     <div className="app-shell">
       <header className="hero">
         <div className="hero__nav">
           <p className="brand">SpotiMy</p>
-          <span className="hero__phase">Phase 1 live</span>
+          <span className="hero__phase">Phase 2 live</span>
         </div>
 
         <div className="hero__content">
           <div className="hero__copy">
-            <p className="hero__eyebrow">Personal project search foundation</p>
-            <h1>Search YouTube cleanly, stage the rest for later.</h1>
+            <p className="hero__eyebrow">Personal project download pipeline</p>
+            <h1>Search, queue, convert, and save MP3 files locally.</h1>
             <p className="hero__lead">
-              This first slice gives you the real search loop: query input,
-              backend API integration, result cards, and resilient loading,
-              empty, and error states.
+              The app now handles single-track download jobs end to end: queue
+              creation, progress tracking, conversion, and file delivery once
+              the MP3 is ready.
             </p>
           </div>
 
           <aside className="hero__note">
-            <h2>What ships in Phase 1</h2>
+            <h2>What ships in Phase 2</h2>
             <ul>
-              <li>Debounced YouTube search</li>
-              <li>Thumbnail cards with duration and channel</li>
-              <li>Friendly empty and error feedback</li>
-              <li>Clear hand-off to future download and playlist actions</li>
+              <li>Download jobs with duplicate suppression</li>
+              <li>Live queue progress and failure reporting</li>
+              <li>Local MP3 file delivery when finished</li>
+              <li>Clear toolchain setup feedback for ffmpeg and yt-dlp</li>
             </ul>
           </aside>
         </div>
@@ -116,6 +215,12 @@ function App() {
           query={query}
           onQueryChange={setQuery}
           isLoading={status === 'loading'}
+        />
+
+        <DownloadQueuePanel
+          runtime={downloadRuntime}
+          jobs={downloadJobs}
+          errorMessage={downloadsErrorMessage}
         />
 
         <section className="results-header" aria-live="polite">
@@ -130,7 +235,7 @@ function App() {
           <p className="results-header__body">
             {hasShortQuery
               ? 'Use at least two characters so we do not spam the API with weak queries.'
-              : 'Download and playlist buttons are intentionally staged for the next phase.'}
+              : 'Playlist management is still staged for Phase 3, but MP3 jobs are live now.'}
           </p>
         </section>
 
@@ -175,7 +280,13 @@ function App() {
         {status === 'success' && results.length > 0 ? (
           <section className="results-grid">
             {results.map((video) => (
-              <VideoCard key={video.id} video={video} />
+              <VideoCard
+                key={video.id}
+                video={video}
+                onDownload={handleDownload}
+                isSubmittingDownload={pendingDownloadVideoIds.includes(video.id)}
+                latestDownload={getLatestDownloadForVideo(video.id)}
+              />
             ))}
           </section>
         ) : null}

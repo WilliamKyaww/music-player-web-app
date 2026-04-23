@@ -1,0 +1,75 @@
+from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import FileResponse
+
+from app.models.downloads import (
+    DownloadJob,
+    DownloadListResponse,
+    DownloadRequest,
+    EnqueueDownloadResponse,
+)
+from app.services.downloads import (
+    DownloadRuntimeError,
+    get_download_manager,
+)
+
+router = APIRouter()
+
+
+@router.get("/downloads", response_model=DownloadListResponse)
+async def list_downloads() -> DownloadListResponse:
+    manager = get_download_manager()
+    return DownloadListResponse(runtime=manager.get_runtime_status(), items=manager.list_jobs())
+
+
+@router.post(
+    "/downloads",
+    response_model=EnqueueDownloadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_download(request: DownloadRequest) -> EnqueueDownloadResponse:
+    manager = get_download_manager()
+
+    try:
+        job, deduplicated = manager.enqueue_download(request)
+    except DownloadRuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return EnqueueDownloadResponse(job=job, deduplicated=deduplicated)
+
+
+@router.get("/downloads/{job_id}", response_model=DownloadJob)
+async def get_download(job_id: str) -> DownloadJob:
+    manager = get_download_manager()
+
+    try:
+        return manager.get_job(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Download not found.") from exc
+
+
+@router.get("/downloads/{job_id}/file")
+async def get_download_file(job_id: str) -> FileResponse:
+    manager = get_download_manager()
+
+    try:
+        file_path = manager.get_file_path(job_id)
+        job = manager.get_job(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Download not found.") from exc
+    except DownloadRuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The completed MP3 file could not be found on disk.",
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type="audio/mpeg",
+        filename=job.file_name or file_path.name,
+    )

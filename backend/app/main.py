@@ -8,8 +8,8 @@ settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    description="Phase 1 search API for the SpotiMy personal project.",
-    version="0.1.0",
+    description="Phase 2 search and MP3 download API for the SpotiMy personal project.",
+    version="0.2.0",
 )
 
 allowed_origins = {

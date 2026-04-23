@@ -1,0 +1,327 @@
+import asyncio
+import re
+import shutil
+import threading
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
+from app.core.config import get_settings
+from app.models.downloads import DownloadJob, DownloadRequest, DownloadRuntimeStatus
+
+try:
+    import yt_dlp
+except ImportError:  # pragma: no cover - depends on local environment
+    yt_dlp = None
+
+INVALID_FILENAME_PATTERN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+MULTISPACE_PATTERN = re.compile(r"\s+")
+
+
+class DownloadRuntimeError(RuntimeError):
+    """Raised when the local machine is missing a tool required for downloads."""
+
+
+@dataclass(slots=True)
+class _DownloadRecord:
+    id: str
+    video_id: str
+    title: str
+    channel_title: str
+    thumbnail_url: str | None
+    source_url: str
+    status: str
+    status_detail: str | None
+    progress_percent: int
+    created_at: str
+    updated_at: str
+    error_message: str | None = None
+    file_name: str | None = None
+    file_size_bytes: int | None = None
+    file_path: Path | None = None
+
+    def to_public_model(self) -> DownloadJob:
+        download_path = None
+        if self.status == "completed" and self.file_path:
+            download_path = f"/api/downloads/{self.id}/file"
+
+        return DownloadJob(
+            id=self.id,
+            video_id=self.video_id,
+            title=self.title,
+            channel_title=self.channel_title,
+            thumbnail_url=self.thumbnail_url,
+            source_url=self.source_url,
+            status=self.status,  # type: ignore[arg-type]
+            status_detail=self.status_detail,
+            progress_percent=self.progress_percent,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            error_message=self.error_message,
+            file_name=self.file_name,
+            file_size_bytes=self.file_size_bytes,
+            download_path=download_path,
+        )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _sanitize_filename(value: str) -> str:
+    cleaned = INVALID_FILENAME_PATTERN.sub("", value).strip()
+    cleaned = MULTISPACE_PATTERN.sub(" ", cleaned)
+    cleaned = cleaned.strip(". ")
+
+    if not cleaned:
+        return "download"
+
+    return cleaned[:120]
+
+
+class DownloadManager:
+    def __init__(self) -> None:
+        self.settings = get_settings()
+        self.settings.downloads_dir.mkdir(parents=True, exist_ok=True)
+        self._jobs: dict[str, _DownloadRecord] = {}
+        self._active_jobs_by_video_id: dict[str, str] = {}
+        self._lock = threading.RLock()
+        self._worker_semaphore = threading.BoundedSemaphore(
+            max(1, self.settings.max_concurrent_downloads)
+        )
+
+    def get_runtime_status(self) -> DownloadRuntimeStatus:
+        missing: list[str] = []
+
+        if yt_dlp is None:
+            missing.append("Install yt-dlp in backend/.venv with `pip install yt-dlp`.")
+
+        if shutil.which("ffmpeg") is None:
+            missing.append("Install ffmpeg and add it to your PATH.")
+
+        return DownloadRuntimeStatus(
+            available=not missing,
+            missing_dependencies=missing,
+            downloads_directory=str(self.settings.downloads_dir),
+        )
+
+    def list_jobs(self) -> list[DownloadJob]:
+        with self._lock:
+            ordered = sorted(
+                self._jobs.values(),
+                key=lambda item: item.created_at,
+                reverse=True,
+            )
+            return [item.to_public_model() for item in ordered]
+
+    def get_job(self, job_id: str) -> DownloadJob:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            return job.to_public_model()
+
+    def get_file_path(self, job_id: str) -> Path:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            if job.status != "completed" or job.file_path is None:
+                raise DownloadRuntimeError("This download is not ready yet.")
+
+            return job.file_path
+
+    def enqueue_download(self, request: DownloadRequest) -> tuple[DownloadJob, bool]:
+        runtime = self.get_runtime_status()
+        if not runtime.available:
+            raise DownloadRuntimeError(
+                "Download prerequisites are missing. "
+                + " ".join(runtime.missing_dependencies)
+            )
+
+        with self._lock:
+            existing_job_id = self._active_jobs_by_video_id.get(request.video_id)
+            if existing_job_id:
+                return self._jobs[existing_job_id].to_public_model(), True
+
+            timestamp = _utc_now()
+            job_id = uuid4().hex
+            source_url = str(request.source_url or f"https://www.youtube.com/watch?v={request.video_id}")
+
+            record = _DownloadRecord(
+                id=job_id,
+                video_id=request.video_id,
+                title=request.title or request.video_id,
+                channel_title=request.channel_title,
+                thumbnail_url=str(request.thumbnail_url) if request.thumbnail_url else None,
+                source_url=source_url,
+                status="queued",
+                status_detail="Waiting for an available worker slot.",
+                progress_percent=0,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            self._jobs[job_id] = record
+            self._active_jobs_by_video_id[request.video_id] = job_id
+
+        asyncio.create_task(self._run_job(job_id))
+        return record.to_public_model(), False
+
+    async def _run_job(self, job_id: str) -> None:
+        await asyncio.to_thread(self._run_job_sync, job_id)
+
+    def _run_job_sync(self, job_id: str) -> None:
+        self._worker_semaphore.acquire()
+        try:
+            self._download_with_yt_dlp(job_id)
+        except Exception as exc:  # pragma: no cover - depends on local tools/network
+            self._mark_failed(job_id, str(exc))
+        finally:
+            self._release_active_job(job_id)
+            self._worker_semaphore.release()
+
+    def _download_with_yt_dlp(self, job_id: str) -> None:
+        if yt_dlp is None:  # pragma: no cover - defensive guard
+            raise DownloadRuntimeError("yt-dlp is not installed.")
+
+        settings = self.settings
+
+        with self._lock:
+            job = self._jobs[job_id]
+            safe_base_name = _sanitize_filename(f"{job.title} [{job.video_id}]")
+            job_dir = settings.downloads_dir / job_id
+
+        job_dir.mkdir(parents=True, exist_ok=True)
+        output_template = str(job_dir / f"{safe_base_name}.%(ext)s")
+
+        def progress_hook(progress_data: dict) -> None:
+            status = progress_data.get("status")
+
+            if status == "downloading":
+                total_bytes = progress_data.get("total_bytes") or progress_data.get(
+                    "total_bytes_estimate"
+                )
+                downloaded_bytes = progress_data.get("downloaded_bytes")
+                percent = 8
+
+                if isinstance(total_bytes, (int, float)) and total_bytes > 0 and isinstance(
+                    downloaded_bytes, (int, float)
+                ):
+                    ratio = max(0.0, min(1.0, downloaded_bytes / total_bytes))
+                    percent = int(8 + ratio * 82)
+
+                detail = progress_data.get("_percent_str")
+                self._update_job(
+                    job_id,
+                    status="downloading",
+                    progress_percent=max(1, min(percent, 90)),
+                    status_detail=(
+                        f"Downloading audio stream ({str(detail).strip()})"
+                        if detail
+                        else "Downloading audio stream"
+                    ),
+                )
+            elif status == "finished":
+                self._update_job(
+                    job_id,
+                    status="converting",
+                    progress_percent=92,
+                    status_detail="Audio download complete. Converting to MP3...",
+                )
+
+        self._update_job(
+            job_id,
+            status="downloading",
+            progress_percent=2,
+            status_detail="Preparing YouTube audio download...",
+        )
+
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": output_template,
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "progress_hooks": [progress_hook],
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }
+            ],
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([self._jobs[job_id].source_url])
+
+        final_file = self._locate_final_file(job_dir)
+        if final_file is None:
+            raise DownloadRuntimeError(
+                "The download completed but no MP3 file was produced. "
+                "Make sure ffmpeg is installed and available on PATH."
+            )
+
+        self._update_job(
+            job_id,
+            status="completed",
+            progress_percent=100,
+            status_detail="MP3 is ready to save.",
+            file_name=final_file.name,
+            file_size_bytes=final_file.stat().st_size,
+            file_path=final_file,
+            error_message=None,
+        )
+
+    def _release_active_job(self, job_id: str) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+
+            current = self._active_jobs_by_video_id.get(job.video_id)
+            if current == job_id:
+                self._active_jobs_by_video_id.pop(job.video_id, None)
+
+    def _mark_failed(self, job_id: str, message: str) -> None:
+        self._update_job(
+            job_id,
+            status="failed",
+            progress_percent=0,
+            status_detail="Download failed.",
+            error_message=message,
+        )
+
+    def _update_job(self, job_id: str, **changes: object) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+
+            for field_name, value in changes.items():
+                setattr(job, field_name, value)
+
+            job.updated_at = _utc_now()
+
+    @staticmethod
+    def _locate_final_file(job_dir: Path) -> Path | None:
+        matches = sorted(job_dir.glob("*.mp3"))
+        if not matches:
+            return None
+
+        return matches[0]
+
+
+_download_manager: DownloadManager | None = None
+
+
+def get_download_manager() -> DownloadManager:
+    global _download_manager
+
+    if _download_manager is None:
+        _download_manager = DownloadManager()
+
+    return _download_manager

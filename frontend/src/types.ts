@@ -16,3 +16,44 @@ export type SearchResponse = {
   total: number
   items: VideoSearchResult[]
 }
+
+export type DownloadStatus =
+  | 'queued'
+  | 'downloading'
+  | 'converting'
+  | 'completed'
+  | 'failed'
+
+export type DownloadRuntimeStatus = {
+  available: boolean
+  missing_dependencies: string[]
+  downloads_directory: string
+}
+
+export type DownloadJob = {
+  id: string
+  video_id: string
+  title: string
+  channel_title: string
+  thumbnail_url: string | null
+  source_url: string
+  status: DownloadStatus
+  status_detail: string | null
+  progress_percent: number
+  created_at: string
+  updated_at: string
+  error_message: string | null
+  file_name: string | null
+  file_size_bytes: number | null
+  download_path: string | null
+}
+
+export type DownloadListResponse = {
+  runtime: DownloadRuntimeStatus
+  items: DownloadJob[]
+}
+
+export type EnqueueDownloadResponse = {
+  job: DownloadJob
+  deduplicated: boolean
+}
