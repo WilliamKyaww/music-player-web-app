@@ -11,6 +11,7 @@ frontend/.env
 *.local
 backend/data/downloads/
 backend/data/playlists/
+backend/data/exports/
 markdown/
 .tmp/
 docs/

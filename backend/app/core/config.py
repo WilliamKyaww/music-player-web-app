@@ -30,6 +30,10 @@ class Settings(BaseSettings):
         default=BACKEND_DIR / "data" / "playlists",
         alias="PLAYLISTS_DIR",
     )
+    exports_dir: Path = Field(
+        default=BACKEND_DIR / "data" / "exports",
+        alias="EXPORTS_DIR",
+    )
     max_concurrent_downloads: int = Field(default=2, alias="MAX_CONCURRENT_DOWNLOADS")
 
     model_config = SettingsConfigDict(

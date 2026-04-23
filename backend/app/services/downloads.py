@@ -142,6 +142,24 @@ class DownloadManager:
 
             return job.file_path
 
+    def find_completed_job_for_video(self, video_id: str) -> DownloadJob | None:
+        with self._lock:
+            candidates = sorted(
+                (
+                    job
+                    for job in self._jobs.values()
+                    if job.video_id == video_id and job.status == "completed"
+                ),
+                key=lambda item: item.updated_at,
+                reverse=True,
+            )
+
+            for candidate in candidates:
+                if candidate.file_path and candidate.file_path.exists():
+                    return candidate.to_public_model()
+
+            return None
+
     def remove_job(self, job_id: str, *, delete_file: bool = True) -> tuple[str, bool]:
         with self._lock:
             job = self._jobs.get(job_id)
@@ -163,6 +181,45 @@ class DownloadManager:
             self._persist_registry_unlocked()
 
             return job_id, deleted_file
+
+    def ensure_download_sync(self, request: DownloadRequest, *, timeout_seconds: int = 900) -> DownloadJob:
+        existing_completed = self.find_completed_job_for_video(request.video_id)
+        if existing_completed is not None:
+            return existing_completed
+
+        with self._lock:
+            existing_job_id = self._active_jobs_by_video_id.get(request.video_id)
+            if existing_job_id:
+                target_job_id = existing_job_id
+            else:
+                timestamp = _utc_now()
+                job_id = uuid4().hex
+                source_url = str(
+                    request.source_url or f"https://www.youtube.com/watch?v={request.video_id}"
+                )
+                record = _DownloadRecord(
+                    id=job_id,
+                    video_id=request.video_id,
+                    title=request.title or request.video_id,
+                    channel_title=request.channel_title,
+                    thumbnail_url=str(request.thumbnail_url) if request.thumbnail_url else None,
+                    source_url=source_url,
+                    status="queued",
+                    status_detail="Waiting for an available worker slot.",
+                    progress_percent=0,
+                    created_at=timestamp,
+                    updated_at=timestamp,
+                )
+                self._jobs[job_id] = record
+                self._active_jobs_by_video_id[request.video_id] = job_id
+                self._persist_registry_unlocked()
+                target_job_id = job_id
+
+        if existing_job_id:
+            return self._wait_for_completion_sync(target_job_id, timeout_seconds=timeout_seconds)
+
+        self._run_job_sync(target_job_id)
+        return self._wait_for_completion_sync(target_job_id, timeout_seconds=timeout_seconds)
 
     def enqueue_download(self, request: DownloadRequest) -> tuple[DownloadJob, bool]:
         runtime = self.get_runtime_status()
@@ -344,6 +401,20 @@ class DownloadManager:
 
             job.updated_at = _utc_now()
             self._persist_registry_unlocked()
+
+    def _wait_for_completion_sync(self, job_id: str, *, timeout_seconds: int) -> DownloadJob:
+        deadline = datetime.now(timezone.utc).timestamp() + timeout_seconds
+
+        while datetime.now(timezone.utc).timestamp() < deadline:
+            job = self.get_job(job_id)
+            if job.status == "completed":
+                return job
+            if job.status == "failed":
+                raise DownloadRuntimeError(job.error_message or job.status_detail or "Download failed.")
+
+            threading.Event().wait(0.5)
+
+        raise DownloadRuntimeError("Timed out waiting for the required MP3 download.")
 
     @staticmethod
     def _locate_final_file(job_dir: Path) -> Path | None:

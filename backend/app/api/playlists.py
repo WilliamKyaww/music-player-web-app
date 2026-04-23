@@ -2,12 +2,15 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from app.models.playlists import (
     AddPlaylistItemRequest,
+    CreatePlaylistExportRequest,
     CreatePlaylistRequest,
     Playlist,
     PlaylistListResponse,
     ReorderPlaylistItemsRequest,
     UpdatePlaylistRequest,
 )
+from app.models.exports import PlaylistExportJob
+from app.services.exports import ExportError, get_export_manager
 from app.services.playlists import PlaylistError, get_playlist_manager
 
 router = APIRouter()
@@ -82,4 +85,23 @@ async def reorder_playlist_items(
     try:
         return manager.reorder_items(playlist_id, request)
     except PlaylistError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/playlists/{playlist_id}/export",
+    response_model=PlaylistExportJob,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def export_playlist(
+    playlist_id: str,
+    request: CreatePlaylistExportRequest,
+) -> PlaylistExportJob:
+    manager = get_export_manager()
+    try:
+        return manager.create_export(
+            playlist_id,
+            delete_previous_exports_for_playlist=request.delete_previous_exports_for_playlist,
+        )
+    except ExportError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

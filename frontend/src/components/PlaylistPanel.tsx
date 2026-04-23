@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -6,6 +6,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from './Icons'
+import { ModalDialog } from './ModalDialog'
 import type { Playlist } from '../types'
 
 type PlaylistPanelProps = {
@@ -38,8 +39,15 @@ export function PlaylistPanel({
   onMoveItem,
 }: PlaylistPanelProps) {
   const [draftName, setDraftName] = useState('')
+  const [renameTarget, setRenameTarget] = useState<Playlist | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<Playlist | null>(null)
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
+  const selectedPlaylistName = useMemo(
+    () => activePlaylist?.name ?? 'Select a playlist',
+    [activePlaylist],
+  )
 
   function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,24 +60,32 @@ export function PlaylistPanel({
     setDraftName('')
   }
 
-  function promptRename(playlist: Playlist) {
-    const nextName = window.prompt('Rename playlist', playlist.name)
-    if (!nextName) {
-      return
-    }
-
-    onRenamePlaylist(playlist.id, nextName)
+  function openRenameModal(playlist: Playlist) {
+    setRenameTarget(playlist)
+    setRenameDraft(playlist.name)
   }
 
-  function confirmDelete(playlist: Playlist) {
-    const confirmed = window.confirm(
-      `Delete playlist "${playlist.name}"? This only removes the playlist record, not any saved MP3 files.`,
-    )
-    if (!confirmed) {
+  function openDeleteModal(playlist: Playlist) {
+    setDeleteTarget(playlist)
+  }
+
+  function handleRenameConfirm() {
+    if (!renameTarget || !renameDraft.trim()) {
       return
     }
 
-    onDeletePlaylist(playlist.id)
+    onRenamePlaylist(renameTarget.id, renameDraft)
+    setRenameTarget(null)
+    setRenameDraft('')
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteTarget) {
+      return
+    }
+
+    onDeletePlaylist(deleteTarget.id)
+    setDeleteTarget(null)
   }
 
   return (
@@ -80,7 +96,7 @@ export function PlaylistPanel({
           <h2>Phase 3 playlist manager</h2>
         </div>
         <p className="playlists-panel__body">
-          Create a playlist, select it, then use the Playlist button on any search result to add tracks.
+          Create a playlist, select it, then use the plus action on any search result to add tracks to one or more playlists.
         </p>
       </div>
 
@@ -124,23 +140,32 @@ export function PlaylistPanel({
                 <article
                   className={`playlist-card ${isActive ? 'playlist-card--active' : ''}`}
                   key={playlist.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isActive}
+                  onClick={() => onSelectPlaylist(playlist.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      onSelectPlaylist(playlist.id)
+                    }
+                  }}
                 >
-                  <button
-                    className="playlist-card__main"
-                    type="button"
-                    onClick={() => onSelectPlaylist(playlist.id)}
-                  >
+                  <div className="playlist-card__main">
                     <span className="playlist-card__name">{playlist.name}</span>
                     <span className="playlist-card__meta">
                       {playlist.items.length} item{playlist.items.length === 1 ? '' : 's'}
                     </span>
-                  </button>
+                  </div>
 
                   <div className="playlist-card__actions">
                     <button
                       type="button"
                       className="playlist-card__icon-button"
-                      onClick={() => promptRename(playlist)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openRenameModal(playlist)
+                      }}
                       disabled={isMutating}
                       title="Rename playlist"
                       aria-label="Rename playlist"
@@ -150,7 +175,10 @@ export function PlaylistPanel({
                     <button
                       type="button"
                       className="playlist-card__icon-button playlist-card__icon-button--danger"
-                      onClick={() => confirmDelete(playlist)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openDeleteModal(playlist)
+                      }}
                       disabled={isMutating}
                       title="Delete playlist"
                       aria-label="Delete playlist"
@@ -172,6 +200,7 @@ export function PlaylistPanel({
                   <p className="results-header__label">Selected playlist</p>
                   <h3>{activePlaylist.name}</h3>
                 </div>
+                <span className="playlist-detail__selected-pill">{selectedPlaylistName}</span>
                 {pendingVideoId ? (
                   <span className="playlist-detail__status">Adding track...</span>
                 ) : null}
@@ -252,6 +281,48 @@ export function PlaylistPanel({
           )}
         </div>
       </div>
+
+      {renameTarget ? (
+        <ModalDialog
+          title="Rename playlist"
+          description="Update the playlist name. This only changes the local playlist record."
+          confirmLabel="Save changes"
+          isBusy={isMutating}
+          onConfirm={handleRenameConfirm}
+          onCancel={() => {
+            if (isMutating) {
+              return
+            }
+            setRenameTarget(null)
+            setRenameDraft('')
+          }}
+        >
+          <input
+            className="modal-dialog__input"
+            type="text"
+            value={renameDraft}
+            onChange={(event) => setRenameDraft(event.target.value)}
+            autoFocus
+          />
+        </ModalDialog>
+      ) : null}
+
+      {deleteTarget ? (
+        <ModalDialog
+          title="Delete playlist"
+          description={`Delete "${deleteTarget.name}"? This removes the playlist record but does not delete any saved MP3 files.`}
+          confirmLabel="Delete playlist"
+          confirmTone="danger"
+          isBusy={isMutating}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => {
+            if (isMutating) {
+              return
+            }
+            setDeleteTarget(null)
+          }}
+        />
+      ) : null}
     </section>
   )
 }

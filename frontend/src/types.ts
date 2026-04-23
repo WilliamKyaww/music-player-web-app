@@ -86,3 +86,31 @@ export type Playlist = {
 export type PlaylistListResponse = {
   items: Playlist[]
 }
+
+export type PlaylistExportStatus =
+  | 'queued'
+  | 'preparing'
+  | 'packaging'
+  | 'completed'
+  | 'failed'
+
+export type PlaylistExportJob = {
+  id: string
+  playlist_id: string
+  playlist_name: string
+  status: PlaylistExportStatus
+  status_detail: string | null
+  progress_percent: number
+  created_at: string
+  updated_at: string
+  item_count: number
+  completed_item_count: number
+  file_name: string | null
+  file_size_bytes: number | null
+  download_path: string | null
+  error_message: string | null
+}
+
+export type PlaylistExportListResponse = {
+  items: PlaylistExportJob[]
+}

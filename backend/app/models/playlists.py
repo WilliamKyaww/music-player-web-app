@@ -44,3 +44,7 @@ class AddPlaylistItemRequest(BaseModel):
 
 class ReorderPlaylistItemsRequest(BaseModel):
     ordered_item_ids: list[str]
+
+
+class CreatePlaylistExportRequest(BaseModel):
+    delete_previous_exports_for_playlist: bool = False

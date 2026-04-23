@@ -9,6 +9,7 @@ Implemented so far:
 - Phase 1: YouTube search and result cards
 - Phase 2: Local MP3 download queue, progress tracking, conversion flow, and file delivery
 - Phase 3: Core playlist management with persistent local playlists, playlist browsing, and multi-playlist add
+- Phase 4: Playlist ZIP export with progress and saved-file delivery
 
 Still coming:
 
@@ -87,4 +88,6 @@ http://localhost:5173
 - Playlists are persisted locally through a lightweight JSON registry.
 - Search results can now be added to one or more playlists in a single action.
 - Key playlist and queue actions now use icon-based controls for add, delete, move, and download actions.
+- Selected playlists now have stronger hover and active styling, and the full playlist card is clickable.
+- Playlist export can build and save a ZIP archive for the selected playlist.
 - This repo is currently structured for local development and personal use, not public deployment.

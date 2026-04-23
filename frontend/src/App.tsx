@@ -5,6 +5,11 @@ import {
   removeDownload,
 } from './api/downloads'
 import {
+  createPlaylistExport,
+  fetchExports,
+  removeExport,
+} from './api/exports'
+import {
   addVideoToPlaylist,
   createPlaylist,
   deletePlaylist,
@@ -15,6 +20,7 @@ import {
 } from './api/playlists'
 import { searchVideos } from './api/search'
 import { DownloadQueuePanel } from './components/DownloadQueuePanel'
+import { PlaylistExportPanel } from './components/PlaylistExportPanel'
 import { PlaylistPanel } from './components/PlaylistPanel'
 import { SearchBar } from './components/SearchBar'
 import { StatusPanel } from './components/StatusPanel'
@@ -23,6 +29,7 @@ import type {
   DownloadJob,
   DownloadRuntimeStatus,
   Playlist,
+  PlaylistExportJob,
   VideoSearchResult,
 } from './types'
 import './App.css'
@@ -45,15 +52,19 @@ function App() {
   const [pendingDownloadVideoIds, setPendingDownloadVideoIds] = useState<string[]>([])
   const [pendingDownloadRemovalIds, setPendingDownloadRemovalIds] = useState<string[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [exportJobs, setExportJobs] = useState<PlaylistExportJob[]>([])
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
   const [playlistsErrorMessage, setPlaylistsErrorMessage] = useState<string | null>(
     null,
   )
+  const [exportsErrorMessage, setExportsErrorMessage] = useState<string | null>(null)
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false)
   const [isMutatingPlaylist, setIsMutatingPlaylist] = useState(false)
+  const [isCreatingExport, setIsCreatingExport] = useState(false)
   const [pendingPlaylistVideoId, setPendingPlaylistVideoId] = useState<string | null>(
     null,
   )
+  const [pendingExportRemovalIds, setPendingExportRemovalIds] = useState<string[]>([])
 
   const runSearch = useEffectEvent(async (nextQuery: string, signal: AbortSignal) => {
     setStatus('loading')
@@ -194,6 +205,27 @@ function App() {
 
       startTransition(() => {
         setPlaylistsErrorMessage(message)
+      })
+    }
+  })
+
+  const loadExports = useEffectEvent(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetchExports(signal)
+      startTransition(() => {
+        setExportJobs(response.items)
+        setExportsErrorMessage(null)
+      })
+    } catch (error) {
+      if (signal?.aborted) {
+        return
+      }
+
+      const message =
+        error instanceof Error ? error.message : 'Could not refresh playlist exports.'
+
+      startTransition(() => {
+        setExportsErrorMessage(message)
       })
     }
   })
@@ -387,6 +419,54 @@ function App() {
     },
   )
 
+  const handleCreateExport = useEffectEvent(async (playlistId: string) => {
+    setIsCreatingExport(true)
+    try {
+      const exportJob = await createPlaylistExport(playlistId)
+      startTransition(() => {
+        setExportJobs((current) => [exportJob, ...current.filter((job) => job.id !== exportJob.id)])
+        setExportsErrorMessage(null)
+      })
+      void loadExports()
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not start playlist export.'
+
+      startTransition(() => {
+        setExportsErrorMessage(message)
+      })
+    } finally {
+      setIsCreatingExport(false)
+    }
+  })
+
+  const handleRemoveExport = useEffectEvent(
+    async (exportJob: PlaylistExportJob, deleteFile: boolean) => {
+      setPendingExportRemovalIds((current) =>
+        current.includes(exportJob.id) ? current : [...current, exportJob.id],
+      )
+
+      try {
+        await removeExport(exportJob.id, deleteFile)
+        startTransition(() => {
+          setExportJobs((current) => current.filter((job) => job.id !== exportJob.id))
+          setExportsErrorMessage(null)
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not remove export entry.'
+
+        startTransition(() => {
+          setExportsErrorMessage(message)
+        })
+      } finally {
+        setPendingExportRemovalIds((current) =>
+          current.filter((id) => id !== exportJob.id),
+        )
+      }
+    },
+  )
+
   useEffect(() => {
     const trimmedQuery = query.trim()
 
@@ -435,9 +515,21 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadExports(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
   const hasShortQuery = query.trim().length > 0 && query.trim().length < 2
   const hasActiveDownloads = downloadJobs.some((job) =>
     ['queued', 'downloading', 'converting'].includes(job.status),
+  )
+  const hasActiveExports = exportJobs.some((job) =>
+    ['queued', 'preparing', 'packaging'].includes(job.status),
   )
 
   useEffect(() => {
@@ -453,6 +545,20 @@ function App() {
       window.clearInterval(intervalId)
     }
   }, [hasActiveDownloads])
+
+  useEffect(() => {
+    if (!hasActiveExports) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadExports()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [hasActiveExports])
 
   function getLatestDownloadForVideo(videoId: string) {
     return downloadJobs.find((job) => job.video_id === videoId) ?? null
@@ -519,6 +625,16 @@ function App() {
           onDeletePlaylist={handleDeletePlaylist}
           onRemoveItem={handleRemovePlaylistItem}
           onMoveItem={handleMovePlaylistItem}
+        />
+
+        <PlaylistExportPanel
+          activePlaylist={activePlaylist}
+          exportJobs={exportJobs}
+          errorMessage={exportsErrorMessage}
+          isCreatingExport={isCreatingExport}
+          pendingRemovalIds={pendingExportRemovalIds}
+          onCreateExport={handleCreateExport}
+          onRemoveExport={handleRemoveExport}
         />
 
         <section className="results-header" aria-live="polite">

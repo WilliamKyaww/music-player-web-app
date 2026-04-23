@@ -378,11 +378,32 @@
 
 .playlist-card {
   padding: 14px;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .playlist-card--active {
+  border-color: rgba(180, 81, 28, 0.42);
+  background: rgba(255, 247, 236, 0.96);
+  box-shadow:
+    inset 0 0 0 2px rgba(180, 81, 28, 0.16),
+    0 12px 24px rgba(196, 92, 36, 0.12);
+  transform: translateY(-1px);
+}
+
+.playlist-card:hover {
   border-color: rgba(180, 81, 28, 0.24);
-  box-shadow: inset 0 0 0 1px rgba(180, 81, 28, 0.08);
+  background: rgba(255, 248, 239, 0.9);
+  box-shadow: 0 10px 20px rgba(20, 25, 32, 0.08);
+}
+
+.playlist-card:focus-visible {
+  outline: 2px solid rgba(180, 81, 28, 0.45);
+  outline-offset: 2px;
 }
 
 .playlist-card__main {
@@ -433,6 +454,11 @@
   border: 1px solid rgba(36, 42, 58, 0.1);
   background: rgba(246, 240, 232, 0.72);
   color: var(--text-strong);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .playlist-card__icon-button:disabled,
@@ -441,6 +467,19 @@
 .video-card__icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.playlist-card__icon-button:hover,
+.playlist-track__icon-button:hover,
+.download-job__icon-button:hover,
+.video-card__icon-button:hover {
+  transform: translateY(-1px);
+}
+
+.playlist-card__icon-button:hover {
+  background: rgba(24, 125, 95, 0.14);
+  border-color: rgba(24, 125, 95, 0.22);
+  color: #11624a;
 }
 
 .playlist-detail {
@@ -461,6 +500,18 @@
 }
 
 .playlist-detail__status {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.playlist-detail__selected-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(180, 81, 28, 0.12);
   color: var(--accent);
   font-weight: 700;
 }
@@ -503,6 +554,25 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
+}
+
+.playlist-track__summary {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.playlist-track__icon-button:hover {
+  background: rgba(49, 106, 222, 0.12);
+  border-color: rgba(49, 106, 222, 0.22);
+  color: #2252b2;
+}
+
+.playlist-track__icon-button--danger:hover,
+.playlist-card__icon-button--danger:hover,
+.download-job__icon-button--danger:hover {
+  background: rgba(255, 238, 236, 0.98);
+  border-color: rgba(176, 42, 42, 0.28);
+  color: #9b2727;
 }
 
 .downloads-list {
@@ -605,6 +675,18 @@
 .download-job__icon-button {
   background: rgba(22, 122, 91, 0.14);
   color: #11624a;
+}
+
+.download-job__icon-button:hover {
+  background: rgba(49, 106, 222, 0.14);
+  border-color: rgba(49, 106, 222, 0.24);
+  color: #2252b2;
+}
+
+.download-job__action-group {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .playlist-create__button:disabled {
@@ -731,6 +813,12 @@
   gap: 10px;
   align-items: center;
   padding: 0 18px 12px;
+}
+
+.video-card__icon-button:hover {
+  background: rgba(49, 106, 222, 0.12);
+  border-color: rgba(49, 106, 222, 0.24);
+  color: #2252b2;
 }
 
 .video-card__button {
@@ -870,6 +958,154 @@
   height: 18px;
 }
 
+.exports-panel {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(36, 42, 58, 0.08);
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.exports-panel__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-bottom: 18px;
+}
+
+.exports-panel__header h3 {
+  margin: 0;
+  font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+}
+
+.exports-panel__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #2252b2, #173d8a);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+.exports-panel__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.export-job {
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(36, 42, 58, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.export-job__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.export-job h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--text-strong);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(14, 18, 24, 0.58);
+  backdrop-filter: blur(8px);
+  z-index: 30;
+}
+
+.modal-dialog {
+  width: min(520px, 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(28, 36, 47, 0.96);
+  color: #f4f0ea;
+  box-shadow: 0 28px 54px rgba(10, 13, 18, 0.35);
+}
+
+.modal-dialog__header,
+.modal-dialog__body,
+.modal-dialog__actions {
+  padding: 18px 20px;
+}
+
+.modal-dialog__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-dialog__header h3 {
+  margin: 0 0 8px;
+  color: #fff8f1;
+}
+
+.modal-dialog__header p {
+  margin: 0;
+  color: rgba(236, 230, 222, 0.76);
+}
+
+.modal-dialog__body {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.modal-dialog__input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff8f1;
+}
+
+.modal-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-dialog__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff8f1;
+  font: inherit;
+  font-weight: 700;
+}
+
+.modal-dialog__button--default {
+  background: linear-gradient(135deg, #1f9b75, #167a5b);
+  border-color: transparent;
+}
+
+.modal-dialog__button--danger {
+  background: linear-gradient(135deg, #bd4a4a, #8f2f2f);
+  border-color: transparent;
+}
+
 .video-card--skeleton {
   overflow: hidden;
 }
@@ -937,7 +1173,8 @@
   .hero__content,
   .results-header,
   .downloads-panel__header,
-  .playlists-panel__header {
+  .playlists-panel__header,
+  .exports-panel__header {
     grid-template-columns: 1fr;
     display: grid;
   }
@@ -981,7 +1218,8 @@
 
   .download-job__meta,
   .download-job__footer,
-  .playlist-detail__header {
+  .playlist-detail__header,
+  .export-job__meta {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -1005,5 +1243,9 @@
 
   .playlist-picker__menu {
     width: min(240px, calc(100vw - 64px));
+  }
+
+  .modal-dialog__actions {
+    flex-direction: column-reverse;
   }
 }
