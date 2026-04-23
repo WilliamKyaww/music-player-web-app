@@ -8,7 +8,7 @@ Implemented so far:
 
 - Phase 1: YouTube search and result cards
 - Phase 2: Local MP3 download queue, progress tracking, conversion flow, and file delivery
-- Phase 3: Core playlist management with persistent local playlists
+- Phase 3: Core playlist management with persistent local playlists, playlist browsing, and multi-playlist add
 
 Still coming:
 
@@ -85,4 +85,6 @@ http://localhost:5173
 - Downloaded MP3 files under `backend/data/downloads/` are also gitignored.
 - The queue now supports removing failed entries and deleting completed MP3s directly from the app.
 - Playlists are persisted locally through a lightweight JSON registry.
+- Search results can now be added to one or more playlists in a single action.
+- Key playlist and queue actions now use icon-based controls for add, delete, move, and download actions.
 - This repo is currently structured for local development and personal use, not public deployment.

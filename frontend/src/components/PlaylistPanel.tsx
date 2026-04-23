@@ -1,4 +1,11 @@
 import { useState } from 'react'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from './Icons'
 import type { Playlist } from '../types'
 
 type PlaylistPanelProps = {
@@ -98,7 +105,8 @@ export function PlaylistPanel({
           type="submit"
           disabled={isCreating || !draftName.trim()}
         >
-          {isCreating ? 'Creating...' : 'Create playlist'}
+          <PlusIcon className="action-icon action-icon--small" />
+          <span>{isCreating ? 'Creating...' : 'Create playlist'}</span>
         </button>
       </form>
 
@@ -131,19 +139,23 @@ export function PlaylistPanel({
                   <div className="playlist-card__actions">
                     <button
                       type="button"
-                      className="playlist-card__action"
+                      className="playlist-card__icon-button"
                       onClick={() => promptRename(playlist)}
                       disabled={isMutating}
+                      title="Rename playlist"
+                      aria-label="Rename playlist"
                     >
-                      Rename
+                      <PencilIcon className="action-icon action-icon--small" />
                     </button>
                     <button
                       type="button"
-                      className="playlist-card__action playlist-card__action--danger"
+                      className="playlist-card__icon-button playlist-card__icon-button--danger"
                       onClick={() => confirmDelete(playlist)}
                       disabled={isMutating}
+                      title="Delete playlist"
+                      aria-label="Delete playlist"
                     >
-                      Delete
+                      <TrashIcon className="action-icon action-icon--small" />
                     </button>
                   </div>
                 </article>
@@ -198,27 +210,33 @@ export function PlaylistPanel({
                         </a>
                         <button
                           type="button"
-                          className="playlist-track__button"
+                          className="playlist-track__icon-button"
                           onClick={() => onMoveItem(activePlaylist.id, item.id, 'up')}
                           disabled={isMutating || index === 0}
+                          title="Move up"
+                          aria-label="Move track up"
                         >
-                          Up
+                          <ArrowUpIcon className="action-icon action-icon--small" />
                         </button>
                         <button
                           type="button"
-                          className="playlist-track__button"
+                          className="playlist-track__icon-button"
                           onClick={() => onMoveItem(activePlaylist.id, item.id, 'down')}
                           disabled={isMutating || index === activePlaylist.items.length - 1}
+                          title="Move down"
+                          aria-label="Move track down"
                         >
-                          Down
+                          <ArrowDownIcon className="action-icon action-icon--small" />
                         </button>
                         <button
                           type="button"
-                          className="playlist-track__button playlist-track__button--danger"
+                          className="playlist-track__icon-button playlist-track__icon-button--danger"
                           onClick={() => onRemoveItem(activePlaylist.id, item.id)}
                           disabled={isMutating}
+                          title="Remove from playlist"
+                          aria-label="Remove from playlist"
                         >
-                          Remove
+                          <TrashIcon className="action-icon action-icon--small" />
                         </button>
                       </div>
                     </article>

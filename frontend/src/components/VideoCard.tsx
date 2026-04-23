@@ -1,11 +1,14 @@
-import type { DownloadJob, VideoSearchResult } from '../types'
+import { DownloadIcon } from './Icons'
+import { PlaylistPicker } from './PlaylistPicker'
+import type { DownloadJob, Playlist, VideoSearchResult } from '../types'
 
 type VideoCardProps = {
   video: VideoSearchResult
   onDownload: (video: VideoSearchResult) => void
-  onAddToPlaylist: (video: VideoSearchResult) => void
+  onAddToPlaylists: (video: VideoSearchResult, playlistIds: string[]) => void
+  playlists: Playlist[]
+  activePlaylistId: string | null
   canAddToPlaylist: boolean
-  playlistLabel: string
   isAddingToPlaylist: boolean
   isSubmittingDownload: boolean
   latestDownload: DownloadJob | null
@@ -45,9 +48,10 @@ function getDownloadButtonLabel(
 export function VideoCard({
   video,
   onDownload,
-  onAddToPlaylist,
+  onAddToPlaylists,
+  playlists,
+  activePlaylistId,
   canAddToPlaylist,
-  playlistLabel,
   isAddingToPlaylist,
   isSubmittingDownload,
   latestDownload,
@@ -94,27 +98,40 @@ export function VideoCard({
           Open on YouTube
         </a>
         <button
-          className="video-card__button"
-          type="button"
-          disabled={isAddingToPlaylist || !canAddToPlaylist}
-          title={canAddToPlaylist ? undefined : 'Create and select a playlist first.'}
-          onClick={() => onAddToPlaylist(video)}
-        >
-          {isAddingToPlaylist ? 'Adding...' : playlistLabel}
-        </button>
-        <button
-          className={`video-card__button ${latestDownload ? `video-card__button--${latestDownload.status}` : ''}`}
+          className={`video-card__icon-button ${latestDownload ? `video-card__icon-button--${latestDownload.status}` : ''}`}
           type="button"
           disabled={isDownloadBusy}
           title={
             latestDownload?.status === 'completed'
               ? 'Use the queue panel to save the finished MP3.'
-              : undefined
+              : 'Download MP3'
+          }
+          aria-label={
+            latestDownload?.status === 'completed'
+              ? 'MP3 already completed'
+              : 'Download MP3'
           }
           onClick={() => onDownload(video)}
         >
-          {getDownloadButtonLabel(latestDownload, isSubmittingDownload)}
+          <DownloadIcon className="action-icon" />
         </button>
+        <PlaylistPicker
+          playlists={playlists}
+          activePlaylistId={activePlaylistId}
+          isSubmitting={isAddingToPlaylist}
+          onSubmit={(playlistIds) => onAddToPlaylists(video, playlistIds)}
+        />
+      </div>
+
+      <div className="video-card__footer-note">
+        <span>{getDownloadButtonLabel(latestDownload, isSubmittingDownload)}</span>
+        <span>
+          {canAddToPlaylist
+            ? activePlaylistId
+              ? 'Active playlist preselected'
+              : 'Choose one or more playlists'
+            : 'Create a playlist first'}
+        </span>
       </div>
     </article>
   )

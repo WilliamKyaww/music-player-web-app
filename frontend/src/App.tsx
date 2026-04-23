@@ -270,34 +270,54 @@ function App() {
     }
   })
 
-  const handleAddToPlaylist = useEffectEvent(async (video: VideoSearchResult) => {
-    if (!activePlaylistId) {
-      setPlaylistsErrorMessage('Create and select a playlist first.')
-      return
-    }
+  const handleAddToPlaylists = useEffectEvent(
+    async (video: VideoSearchResult, playlistIds: string[]) => {
+      if (playlistIds.length === 0) {
+        setPlaylistsErrorMessage('Choose at least one playlist first.')
+        return
+      }
 
-    setPendingPlaylistVideoId(video.id)
-    setIsMutatingPlaylist(true)
-    try {
-      const updated = await addVideoToPlaylist(activePlaylistId, video)
-      startTransition(() => {
-        setPlaylists((current) =>
-          current.map((playlist) => (playlist.id === updated.id ? updated : playlist)),
+      setPendingPlaylistVideoId(video.id)
+      setIsMutatingPlaylist(true)
+      try {
+        const results = await Promise.allSettled(
+          playlistIds.map((playlistId) => addVideoToPlaylist(playlistId, video)),
         )
-        setPlaylistsErrorMessage(null)
-      })
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not add this video to the playlist.'
 
-      startTransition(() => {
-        setPlaylistsErrorMessage(message)
-      })
-    } finally {
-      setPendingPlaylistVideoId(null)
-      setIsMutatingPlaylist(false)
-    }
-  })
+        await loadPlaylists()
+
+        const failed = results.filter((result) => result.status === 'rejected')
+        if (failed.length > 0) {
+          const reason =
+            failed[0].status === 'rejected' && failed[0].reason instanceof Error
+              ? failed[0].reason.message
+              : 'One or more playlist updates failed.'
+
+          startTransition(() => {
+            setPlaylistsErrorMessage(
+              `Added to ${results.length - failed.length} playlist(s). ${reason}`,
+            )
+          })
+        } else {
+          startTransition(() => {
+            setPlaylistsErrorMessage(null)
+          })
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not add this video to the selected playlists.'
+
+        startTransition(() => {
+          setPlaylistsErrorMessage(message)
+        })
+      } finally {
+        setPendingPlaylistVideoId(null)
+        setIsMutatingPlaylist(false)
+      }
+    },
+  )
 
   const handleRemovePlaylistItem = useEffectEvent(
     async (playlistId: string, itemId: string) => {
@@ -446,27 +466,26 @@ function App() {
       <header className="hero">
         <div className="hero__nav">
           <p className="brand">SpotiMy</p>
-          <span className="hero__phase">Phase 2 live</span>
+          <span className="hero__phase">Phase 3 live</span>
         </div>
 
         <div className="hero__content">
           <div className="hero__copy">
-            <p className="hero__eyebrow">Personal project download pipeline</p>
-            <h1>Search, queue, convert, and save MP3 files locally.</h1>
+            <p className="hero__eyebrow">Playlist-driven local music workflow</p>
+            <h1>Search, download, sort, and organize songs across playlists.</h1>
             <p className="hero__lead">
-              The app now handles single-track download jobs end to end: queue
-              creation, progress tracking, conversion, and file delivery once
-              the MP3 is ready.
+              The app now combines the full download queue with persistent playlist
+              management, including multi-playlist add flows and quick track-order controls.
             </p>
           </div>
 
           <aside className="hero__note">
-            <h2>What ships in Phase 2</h2>
+            <h2>What ships in Phase 3</h2>
             <ul>
-              <li>Download jobs with duplicate suppression</li>
-              <li>Live queue progress and failure reporting</li>
-              <li>Local MP3 file delivery when finished</li>
-              <li>Clear toolchain setup feedback for ffmpeg and yt-dlp</li>
+              <li>Persistent local playlists with CRUD support</li>
+              <li>Multi-playlist add from search result cards</li>
+              <li>Queue cleanup controls for completed and failed jobs</li>
+              <li>Icon-based controls for playlist and download actions</li>
             </ul>
           </aside>
         </div>
@@ -515,8 +534,10 @@ function App() {
             {hasShortQuery
               ? 'Use at least two characters so we do not spam the API with weak queries.'
               : activePlaylist
-                ? `Playlist actions target "${activePlaylist.name}" right now.`
-                : 'Create and select a playlist to use the Playlist button on result cards.'}
+                ? `The plus action preselects "${activePlaylist.name}" but you can target multiple playlists.`
+                : playlists.length > 0
+                  ? 'Use the plus action on a result card to choose one or more playlists.'
+                  : 'Create a playlist first to start organizing search results.'}
           </p>
         </section>
 
@@ -565,11 +586,10 @@ function App() {
                 key={video.id}
                 video={video}
                 onDownload={handleDownload}
-                onAddToPlaylist={handleAddToPlaylist}
-                canAddToPlaylist={Boolean(activePlaylist)}
-                playlistLabel={
-                  activePlaylist ? `Add to ${activePlaylist.name}` : 'Select playlist'
-                }
+                onAddToPlaylists={handleAddToPlaylists}
+                playlists={playlists}
+                activePlaylistId={activePlaylist?.id ?? null}
+                canAddToPlaylist={playlists.length > 0}
                 isAddingToPlaylist={pendingPlaylistVideoId === video.id}
                 isSubmittingDownload={pendingDownloadVideoIds.includes(video.id)}
                 latestDownload={getLatestDownloadForVideo(video.id)}

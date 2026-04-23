@@ -1,3 +1,4 @@
+import { DownloadIcon, TrashIcon } from './Icons'
 import { getDownloadFileHref } from '../api/downloads'
 import type { DownloadJob, DownloadRuntimeStatus } from '../types'
 
@@ -108,33 +109,39 @@ export function DownloadQueuePanel({
 
                 {job.status === 'completed' && job.download_path ? (
                   <a
-                    className="download-job__link"
+                    className="download-job__icon-button"
                     href={getDownloadFileHref(job.id)}
                     download={job.file_name ?? undefined}
+                    title="Save MP3"
+                    aria-label="Save MP3"
                   >
-                    Save MP3
+                    <DownloadIcon className="action-icon" />
                   </a>
                 ) : null}
 
                 {job.status === 'completed' ? (
                   <button
                     type="button"
-                    className="download-job__button download-job__button--danger"
+                    className="download-job__icon-button download-job__icon-button--danger"
                     onClick={() => onRemoveJob(job, true)}
                     disabled={pendingRemovalIds.includes(job.id)}
+                    title="Delete saved MP3 and remove queue entry"
+                    aria-label="Delete saved MP3 and remove queue entry"
                   >
-                    {pendingRemovalIds.includes(job.id) ? 'Removing...' : 'Delete file'}
+                    <TrashIcon className="action-icon" />
                   </button>
                 ) : null}
 
                 {job.status === 'failed' ? (
                   <button
                     type="button"
-                    className="download-job__button"
+                    className="download-job__icon-button"
                     onClick={() => onRemoveJob(job, false)}
                     disabled={pendingRemovalIds.includes(job.id)}
+                    title="Remove failed queue entry"
+                    aria-label="Remove failed queue entry"
                   >
-                    {pendingRemovalIds.includes(job.id) ? 'Removing...' : 'Remove entry'}
+                    <TrashIcon className="action-icon" />
                   </button>
                 ) : null}
               </div>
