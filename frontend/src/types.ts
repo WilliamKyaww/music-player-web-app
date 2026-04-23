@@ -94,10 +94,13 @@ export type PlaylistExportStatus =
   | 'completed'
   | 'failed'
 
+export type PlaylistExportFormat = 'zip' | 'combined_mp3'
+
 export type PlaylistExportJob = {
   id: string
   playlist_id: string
   playlist_name: string
+  export_format: PlaylistExportFormat
   status: PlaylistExportStatus
   status_detail: string | null
   progress_percent: number
@@ -113,4 +116,21 @@ export type PlaylistExportJob = {
 
 export type PlaylistExportListResponse = {
   items: PlaylistExportJob[]
+}
+
+export type SpotifyPreviewTrack = {
+  spotify_track_id: string
+  title: string
+  artists: string[]
+  album: string | null
+  duration_ms: number | null
+}
+
+export type SpotifyPlaylistPreview = {
+  playlist_id: string
+  playlist_name: string
+  playlist_owner: string | null
+  playlist_url: string
+  total_tracks: number
+  preview_tracks: SpotifyPreviewTrack[]
 }

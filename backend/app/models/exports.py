@@ -3,12 +3,14 @@ from typing import Literal
 from pydantic import BaseModel
 
 ExportStatus = Literal["queued", "preparing", "packaging", "completed", "failed"]
+ExportFormat = Literal["zip", "combined_mp3"]
 
 
 class PlaylistExportJob(BaseModel):
     id: str
     playlist_id: str
     playlist_name: str
+    export_format: ExportFormat
     status: ExportStatus
     status_detail: str | None = None
     progress_percent: int

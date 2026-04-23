@@ -142,6 +142,9 @@ class DownloadManager:
 
             return job.file_path
 
+    def get_ffmpeg_binary(self) -> str | None:
+        return self._resolve_ffmpeg_binary()
+
     def find_completed_job_for_video(self, video_id: str) -> DownloadJob | None:
         with self._lock:
             candidates = sorted(

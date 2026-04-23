@@ -18,11 +18,13 @@ import {
   renamePlaylist,
   reorderPlaylistItems,
 } from './api/playlists'
+import { previewSpotifyPlaylist } from './api/spotify'
 import { searchVideos } from './api/search'
 import { DownloadQueuePanel } from './components/DownloadQueuePanel'
 import { PlaylistExportPanel } from './components/PlaylistExportPanel'
 import { PlaylistPanel } from './components/PlaylistPanel'
 import { SearchBar } from './components/SearchBar'
+import { SpotifyImportPanel } from './components/SpotifyImportPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { VideoCard } from './components/VideoCard'
 import type {
@@ -30,6 +32,7 @@ import type {
   DownloadRuntimeStatus,
   Playlist,
   PlaylistExportJob,
+  SpotifyPlaylistPreview,
   VideoSearchResult,
 } from './types'
 import './App.css'
@@ -61,6 +64,11 @@ function App() {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false)
   const [isMutatingPlaylist, setIsMutatingPlaylist] = useState(false)
   const [isCreatingExport, setIsCreatingExport] = useState(false)
+  const [spotifyPreview, setSpotifyPreview] = useState<SpotifyPlaylistPreview | null>(null)
+  const [spotifyPreviewErrorMessage, setSpotifyPreviewErrorMessage] = useState<string | null>(
+    null,
+  )
+  const [isLoadingSpotifyPreview, setIsLoadingSpotifyPreview] = useState(false)
   const [pendingPlaylistVideoId, setPendingPlaylistVideoId] = useState<string | null>(
     null,
   )
@@ -419,10 +427,10 @@ function App() {
     },
   )
 
-  const handleCreateExport = useEffectEvent(async (playlistId: string) => {
+  const handleCreateExport = useEffectEvent(async (playlistId: string, exportFormat: 'zip' | 'combined_mp3') => {
     setIsCreatingExport(true)
     try {
-      const exportJob = await createPlaylistExport(playlistId)
+      const exportJob = await createPlaylistExport(playlistId, exportFormat)
       startTransition(() => {
         setExportJobs((current) => [exportJob, ...current.filter((job) => job.id !== exportJob.id)])
         setExportsErrorMessage(null)
@@ -466,6 +474,26 @@ function App() {
       }
     },
   )
+
+  const handleSpotifyPreview = useEffectEvent(async (playlistUrl: string) => {
+    setIsLoadingSpotifyPreview(true)
+    try {
+      const preview = await previewSpotifyPlaylist(playlistUrl)
+      startTransition(() => {
+        setSpotifyPreview(preview)
+        setSpotifyPreviewErrorMessage(null)
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not preview the Spotify playlist.'
+
+      startTransition(() => {
+        setSpotifyPreviewErrorMessage(message)
+      })
+    } finally {
+      setIsLoadingSpotifyPreview(false)
+    }
+  })
 
   useEffect(() => {
     const trimmedQuery = query.trim()
@@ -635,6 +663,13 @@ function App() {
           pendingRemovalIds={pendingExportRemovalIds}
           onCreateExport={handleCreateExport}
           onRemoveExport={handleRemoveExport}
+        />
+
+        <SpotifyImportPanel
+          preview={spotifyPreview}
+          errorMessage={spotifyPreviewErrorMessage}
+          isLoading={isLoadingSpotifyPreview}
+          onPreview={handleSpotifyPreview}
         />
 
         <section className="results-header" aria-live="polite">

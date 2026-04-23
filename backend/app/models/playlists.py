@@ -48,3 +48,4 @@ class ReorderPlaylistItemsRequest(BaseModel):
 
 class CreatePlaylistExportRequest(BaseModel):
     delete_previous_exports_for_playlist: bool = False
+    export_format: str = "zip"

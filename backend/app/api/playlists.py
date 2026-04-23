@@ -102,6 +102,7 @@ async def export_playlist(
         return manager.create_export(
             playlist_id,
             delete_previous_exports_for_playlist=request.delete_previous_exports_for_playlist,
+            export_format=request.export_format,
         )
     except ExportError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

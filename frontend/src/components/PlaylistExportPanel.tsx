@@ -1,6 +1,6 @@
 import { DownloadIcon, TrashIcon } from './Icons'
 import { getExportFileHref } from '../api/exports'
-import type { Playlist, PlaylistExportJob } from '../types'
+import type { Playlist, PlaylistExportFormat, PlaylistExportJob } from '../types'
 
 type PlaylistExportPanelProps = {
   activePlaylist: Playlist | null
@@ -8,7 +8,7 @@ type PlaylistExportPanelProps = {
   errorMessage: string | null
   isCreatingExport: boolean
   pendingRemovalIds: string[]
-  onCreateExport: (playlistId: string) => void
+  onCreateExport: (playlistId: string, exportFormat: PlaylistExportFormat) => void
   onRemoveExport: (exportJob: PlaylistExportJob, deleteFile: boolean) => void
 }
 
@@ -42,7 +42,9 @@ export function PlaylistExportPanel({
   const relevantJobs = activePlaylist
     ? exportJobs.filter((job) => job.playlist_id === activePlaylist.id)
     : []
-  const latestJob = relevantJobs[0] ?? null
+  const orderedJobs = [...relevantJobs].sort((left, right) =>
+    right.created_at.localeCompare(left.created_at),
+  )
 
   return (
     <section className="exports-panel">
@@ -57,14 +59,24 @@ export function PlaylistExportPanel({
         </div>
 
         {activePlaylist ? (
-          <button
-            type="button"
-            className="exports-panel__button"
-            onClick={() => onCreateExport(activePlaylist.id)}
-            disabled={isCreatingExport || activePlaylist.items.length === 0}
-          >
-            {isCreatingExport ? 'Starting export...' : 'Export ZIP'}
-          </button>
+          <div className="exports-panel__button-group">
+            <button
+              type="button"
+              className="exports-panel__button"
+              onClick={() => onCreateExport(activePlaylist.id, 'zip')}
+              disabled={isCreatingExport || activePlaylist.items.length === 0}
+            >
+              {isCreatingExport ? 'Starting export...' : 'Export ZIP'}
+            </button>
+            <button
+              type="button"
+              className="exports-panel__button exports-panel__button--secondary"
+              onClick={() => onCreateExport(activePlaylist.id, 'combined_mp3')}
+              disabled={isCreatingExport || activePlaylist.items.length === 0}
+            >
+              {isCreatingExport ? 'Starting export...' : 'Export combined MP3'}
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -85,78 +97,94 @@ export function PlaylistExportPanel({
           <h3>No tracks to export</h3>
           <p>Add songs to this playlist before creating a ZIP.</p>
         </div>
-      ) : latestJob ? (
-        <article className="export-job">
-          <div className="export-job__meta">
-            <div>
-              <p className="download-job__status">{latestJob.status}</p>
-              <h4>{latestJob.playlist_name}</h4>
-              <p className="playlist-track__summary">
-                {latestJob.completed_item_count} of {latestJob.item_count} track(s) prepared
+      ) : orderedJobs.length > 0 ? (
+        <div className="exports-panel__list">
+          {orderedJobs.map((job) => (
+            <article className="export-job" key={job.id}>
+              <div className="export-job__meta">
+                <div>
+                  <p className="download-job__status">{job.status}</p>
+                  <h4>
+                    {job.export_format === 'combined_mp3'
+                      ? `${job.playlist_name} (combined MP3)`
+                      : `${job.playlist_name} (ZIP)`}
+                  </h4>
+                  <p className="playlist-track__summary">
+                    {job.completed_item_count} of {job.item_count} track(s) prepared
+                  </p>
+                </div>
+                <span className={`download-job__pill download-job__pill--${job.status}`}>
+                  {job.status === 'completed'
+                    ? 'Ready'
+                    : job.status === 'failed'
+                      ? 'Failed'
+                      : `${job.progress_percent}%`}
+                </span>
+              </div>
+
+              <div className="download-job__progress">
+                <div
+                  className={`download-job__bar download-job__bar--${job.status}`}
+                  style={{ width: `${job.progress_percent}%` }}
+                />
+              </div>
+
+              <p className="download-job__detail">
+                {job.error_message || job.status_detail || 'Working...'}
               </p>
-            </div>
-            <span className={`download-job__pill download-job__pill--${latestJob.status}`}>
-              {latestJob.status === 'completed'
-                ? 'Ready'
-                : latestJob.status === 'failed'
-                  ? 'Failed'
-                  : `${latestJob.progress_percent}%`}
-            </span>
-          </div>
 
-          <div className="download-job__progress">
-            <div
-              className={`download-job__bar download-job__bar--${latestJob.status}`}
-              style={{ width: `${latestJob.progress_percent}%` }}
-            />
-          </div>
+              <div className="download-job__footer">
+                <span>{formatFileSize(job.file_size_bytes) ?? 'Export pending'}</span>
+                <div className="download-job__action-group">
+                  {job.status === 'completed' && job.download_path ? (
+                    <a
+                      className="download-job__icon-button"
+                      href={getExportFileHref(job.id)}
+                      download={job.file_name ?? undefined}
+                      title={
+                        job.export_format === 'combined_mp3'
+                          ? 'Save combined MP3 export'
+                          : 'Save ZIP export'
+                      }
+                      aria-label={
+                        job.export_format === 'combined_mp3'
+                          ? 'Save combined MP3 export'
+                          : 'Save ZIP export'
+                      }
+                    >
+                      <DownloadIcon className="action-icon" />
+                    </a>
+                  ) : null}
 
-          <p className="download-job__detail">
-            {latestJob.error_message || latestJob.status_detail || 'Working...'}
-          </p>
-
-          <div className="download-job__footer">
-            <span>{formatFileSize(latestJob.file_size_bytes) ?? 'ZIP pending'}</span>
-            <div className="download-job__action-group">
-              {latestJob.status === 'completed' && latestJob.download_path ? (
-                <a
-                  className="download-job__icon-button"
-                  href={getExportFileHref(latestJob.id)}
-                  download={latestJob.file_name ?? undefined}
-                  title="Save ZIP export"
-                  aria-label="Save ZIP export"
-                >
-                  <DownloadIcon className="action-icon" />
-                </a>
-              ) : null}
-
-              {latestJob.status === 'completed' || latestJob.status === 'failed' ? (
-                <button
-                  type="button"
-                  className="download-job__icon-button download-job__icon-button--danger"
-                  onClick={() => onRemoveExport(latestJob, latestJob.status === 'completed')}
-                  disabled={pendingRemovalIds.includes(latestJob.id)}
-                  title={
-                    latestJob.status === 'completed'
-                      ? 'Delete ZIP export'
-                      : 'Remove export entry'
-                  }
-                  aria-label={
-                    latestJob.status === 'completed'
-                      ? 'Delete ZIP export'
-                      : 'Remove export entry'
-                  }
-                >
-                  <TrashIcon className="action-icon" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </article>
+                  {job.status === 'completed' || job.status === 'failed' ? (
+                    <button
+                      type="button"
+                      className="download-job__icon-button download-job__icon-button--danger"
+                      onClick={() => onRemoveExport(job, job.status === 'completed')}
+                      disabled={pendingRemovalIds.includes(job.id)}
+                      title={
+                        job.status === 'completed'
+                          ? 'Delete export file'
+                          : 'Remove export entry'
+                      }
+                      aria-label={
+                        job.status === 'completed'
+                          ? 'Delete export file'
+                          : 'Remove export entry'
+                      }
+                    >
+                      <TrashIcon className="action-icon" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
       ) : (
         <div className="playlists-panel__alert">
           <h3>No export started yet</h3>
-          <p>Click Export ZIP to build a downloadable archive for this playlist.</p>
+          <p>Click Export ZIP or Export combined MP3 to build a downloadable archive for this playlist.</p>
         </div>
       )}
     </section>

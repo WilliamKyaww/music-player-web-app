@@ -14,6 +14,8 @@ class Settings(BaseSettings):
         alias="FRONTEND_ORIGIN",
     )
     youtube_api_key: str = Field(default="", alias="YOUTUBE_API_KEY")
+    spotify_client_id: str = Field(default="", alias="SPOTIFY_CLIENT_ID")
+    spotify_client_secret: str = Field(default="", alias="SPOTIFY_CLIENT_SECRET")
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_default_max_results: int = 12
     request_timeout_seconds: float = 15.0

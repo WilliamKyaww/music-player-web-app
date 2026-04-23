@@ -1,5 +1,6 @@
 import asyncio
 import json
+import subprocess
 import shutil
 import threading
 import zipfile
@@ -40,6 +41,7 @@ class _ExportRecord:
     id: str
     playlist_id: str
     playlist_name: str
+    export_format: str
     status: str
     status_detail: str | None
     progress_percent: int
@@ -61,6 +63,7 @@ class _ExportRecord:
             id=self.id,
             playlist_id=self.playlist_id,
             playlist_name=self.playlist_name,
+            export_format=self.export_format,  # type: ignore[arg-type]
             status=self.status,  # type: ignore[arg-type]
             status_detail=self.status_detail,
             progress_percent=self.progress_percent,
@@ -109,7 +112,13 @@ class PlaylistExportManager:
                 raise ExportError("This export is not ready yet.", status_code=409)
             return export.file_path
 
-    def create_export(self, playlist_id: str, *, delete_previous_exports_for_playlist: bool) -> PlaylistExportJob:
+    def create_export(
+        self,
+        playlist_id: str,
+        *,
+        delete_previous_exports_for_playlist: bool,
+        export_format: str,
+    ) -> PlaylistExportJob:
         playlist_manager = get_playlist_manager()
         playlists = {playlist.id: playlist for playlist in playlist_manager.list_playlists()}
         playlist = playlists.get(playlist_id)
@@ -117,6 +126,8 @@ class PlaylistExportManager:
             raise ExportError("Playlist not found.", status_code=404)
         if not playlist.items:
             raise ExportError("Add at least one song before exporting the playlist.", status_code=409)
+        if export_format not in {"zip", "combined_mp3"}:
+            raise ExportError("Unsupported export format requested.", status_code=400)
 
         with self._lock:
             if delete_previous_exports_for_playlist:
@@ -128,6 +139,7 @@ class PlaylistExportManager:
                 id=export_id,
                 playlist_id=playlist.id,
                 playlist_name=playlist.name,
+                export_format=export_format,
                 status="queued",
                 status_detail="Waiting for export worker slot.",
                 progress_percent=0,
@@ -180,38 +192,27 @@ class PlaylistExportManager:
                     completed_item_count=index,
                 )
 
-            zip_path = export_dir / f"{_sanitize_filename(playlist.name)}.zip"
-            self._update_export(
-                export_id,
-                status="packaging",
-                progress_percent=82,
-                status_detail="Building ZIP archive...",
-            )
-
-            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-                seen_names: dict[str, int] = {}
-                for index, file_path in enumerate(collected_files, start=1):
-                    file_name = file_path.name
-                    counter = seen_names.get(file_name, 0)
-                    seen_names[file_name] = counter + 1
-                    arcname = file_name if counter == 0 else f"{file_path.stem} ({counter + 1}){file_path.suffix}"
-                    archive.write(file_path, arcname=arcname)
-                    progress = int(82 + (index / max(1, len(collected_files))) * 16)
-                    self._update_export(
-                        export_id,
-                        status="packaging",
-                        progress_percent=min(progress, 98),
-                        status_detail=f"Archived {index} of {len(collected_files)} track(s).",
-                    )
+            if self._exports[export_id].export_format == "zip":
+                output_path = self._build_zip_export(export_id, playlist, export_dir, collected_files)
+                completion_detail = "ZIP export is ready to save."
+            else:
+                output_path = self._build_combined_mp3_export(
+                    export_id,
+                    playlist,
+                    export_dir,
+                    collected_files,
+                    download_manager,
+                )
+                completion_detail = "Combined MP3 export is ready to save."
 
             self._update_export(
                 export_id,
                 status="completed",
                 progress_percent=100,
-                status_detail="ZIP export is ready to save.",
-                file_name=zip_path.name,
-                file_size_bytes=zip_path.stat().st_size,
-                file_path=zip_path,
+                status_detail=completion_detail,
+                file_name=output_path.name,
+                file_size_bytes=output_path.stat().st_size,
+                file_path=output_path,
                 error_message=None,
             )
         except (DownloadRuntimeError, PlaylistError, ExportError) as exc:
@@ -317,6 +318,7 @@ class PlaylistExportManager:
             "id": export.id,
             "playlist_id": export.playlist_id,
             "playlist_name": export.playlist_name,
+            "export_format": export.export_format,
             "status": export.status,
             "status_detail": export.status_detail,
             "progress_percent": export.progress_percent,
@@ -337,6 +339,7 @@ class PlaylistExportManager:
             id=str(payload["id"]),
             playlist_id=str(payload["playlist_id"]),
             playlist_name=str(payload["playlist_name"]),
+            export_format=str(payload.get("export_format", "zip")),
             status=str(payload["status"]),
             status_detail=str(payload["status_detail"]) if payload.get("status_detail") else None,
             progress_percent=int(payload.get("progress_percent", 0)),
@@ -349,6 +352,105 @@ class PlaylistExportManager:
             file_path=Path(str(file_path)) if file_path else None,
             error_message=str(payload["error_message"]) if payload.get("error_message") else None,
         )
+
+    def _build_zip_export(
+        self,
+        export_id: str,
+        playlist: Playlist,
+        export_dir: Path,
+        collected_files: list[Path],
+    ) -> Path:
+        zip_path = export_dir / f"{_sanitize_filename(playlist.name)}.zip"
+        self._update_export(
+            export_id,
+            status="packaging",
+            progress_percent=82,
+            status_detail="Building ZIP archive...",
+        )
+
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            seen_names: dict[str, int] = {}
+            for index, file_path in enumerate(collected_files, start=1):
+                file_name = file_path.name
+                counter = seen_names.get(file_name, 0)
+                seen_names[file_name] = counter + 1
+                arcname = (
+                    file_name
+                    if counter == 0
+                    else f"{file_path.stem} ({counter + 1}){file_path.suffix}"
+                )
+                archive.write(file_path, arcname=arcname)
+                progress = int(82 + (index / max(1, len(collected_files))) * 16)
+                self._update_export(
+                    export_id,
+                    status="packaging",
+                    progress_percent=min(progress, 98),
+                    status_detail=f"Archived {index} of {len(collected_files)} track(s).",
+                )
+
+        return zip_path
+
+    def _build_combined_mp3_export(
+        self,
+        export_id: str,
+        playlist: Playlist,
+        export_dir: Path,
+        collected_files: list[Path],
+        download_manager: DownloadManager,
+    ) -> Path:
+        ffmpeg_binary = download_manager.get_ffmpeg_binary()
+        if ffmpeg_binary is None:
+            raise ExportError(
+                "ffmpeg could not be found for combined MP3 export.",
+                status_code=503,
+            )
+
+        concat_file = export_dir / "concat-inputs.txt"
+        output_path = export_dir / f"{_sanitize_filename(playlist.name)}.mp3"
+        concat_lines = []
+        for file_path in collected_files:
+            escaped = str(file_path).replace("'", "'\\''")
+            concat_lines.append(f"file '{escaped}'")
+        concat_file.write_text("\n".join(concat_lines), encoding="utf-8")
+
+        self._update_export(
+            export_id,
+            status="packaging",
+            progress_percent=82,
+            status_detail="Combining tracks into a single MP3...",
+        )
+
+        completed = subprocess.run(
+            [
+                ffmpeg_binary,
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-c",
+                "copy",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if completed.returncode != 0 or not output_path.exists():
+            stderr = completed.stderr.strip() or "ffmpeg did not produce a combined MP3."
+            raise ExportError(stderr, status_code=500)
+
+        self._update_export(
+            export_id,
+            status="packaging",
+            progress_percent=98,
+            status_detail=f"Combined {len(collected_files)} track(s) into one MP3.",
+        )
+
+        return output_path
 
 
 _export_manager: PlaylistExportManager | None = None

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 type ModalDialogProps = {
   title: string
@@ -23,7 +24,15 @@ export function ModalDialog({
   onConfirm,
   onCancel,
 }: ModalDialogProps) {
-  return (
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onCancel}>
       <div
         className="modal-dialog"
@@ -58,6 +67,7 @@ export function ModalDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

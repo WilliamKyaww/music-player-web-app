@@ -106,44 +106,45 @@ export function DownloadQueuePanel({
                 <span>
                   {job.file_size_bytes ? formatFileSize(job.file_size_bytes) : 'Pending file'}
                 </span>
+                <div className="download-job__action-group">
+                  {job.status === 'completed' && job.download_path ? (
+                    <a
+                      className="download-job__icon-button"
+                      href={getDownloadFileHref(job.id)}
+                      download={job.file_name ?? undefined}
+                      title="Save MP3"
+                      aria-label="Save MP3"
+                    >
+                      <DownloadIcon className="action-icon" />
+                    </a>
+                  ) : null}
 
-                {job.status === 'completed' && job.download_path ? (
-                  <a
-                    className="download-job__icon-button"
-                    href={getDownloadFileHref(job.id)}
-                    download={job.file_name ?? undefined}
-                    title="Save MP3"
-                    aria-label="Save MP3"
-                  >
-                    <DownloadIcon className="action-icon" />
-                  </a>
-                ) : null}
+                  {job.status === 'completed' ? (
+                    <button
+                      type="button"
+                      className="download-job__icon-button download-job__icon-button--danger"
+                      onClick={() => onRemoveJob(job, true)}
+                      disabled={pendingRemovalIds.includes(job.id)}
+                      title="Delete saved MP3 and remove queue entry"
+                      aria-label="Delete saved MP3 and remove queue entry"
+                    >
+                      <TrashIcon className="action-icon" />
+                    </button>
+                  ) : null}
 
-                {job.status === 'completed' ? (
-                  <button
-                    type="button"
-                    className="download-job__icon-button download-job__icon-button--danger"
-                    onClick={() => onRemoveJob(job, true)}
-                    disabled={pendingRemovalIds.includes(job.id)}
-                    title="Delete saved MP3 and remove queue entry"
-                    aria-label="Delete saved MP3 and remove queue entry"
-                  >
-                    <TrashIcon className="action-icon" />
-                  </button>
-                ) : null}
-
-                {job.status === 'failed' ? (
-                  <button
-                    type="button"
-                    className="download-job__icon-button"
-                    onClick={() => onRemoveJob(job, false)}
-                    disabled={pendingRemovalIds.includes(job.id)}
-                    title="Remove failed queue entry"
-                    aria-label="Remove failed queue entry"
-                  >
-                    <TrashIcon className="action-icon" />
-                  </button>
-                ) : null}
+                  {job.status === 'failed' ? (
+                    <button
+                      type="button"
+                      className="download-job__icon-button"
+                      onClick={() => onRemoveJob(job, false)}
+                      disabled={pendingRemovalIds.includes(job.id)}
+                      title="Remove failed queue entry"
+                      aria-label="Remove failed queue entry"
+                    >
+                      <TrashIcon className="action-icon" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </article>
           ))}
