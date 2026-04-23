@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import shutil
 import threading
@@ -17,6 +18,8 @@ except ImportError:  # pragma: no cover - depends on local environment
 
 INVALID_FILENAME_PATTERN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 MULTISPACE_PATTERN = re.compile(r"\s+")
+ACTIVE_JOB_STATUSES = {"queued", "downloading", "converting"}
+DOWNLOAD_REGISTRY_FILENAME = "jobs.json"
 
 
 class DownloadRuntimeError(RuntimeError):
@@ -84,21 +87,26 @@ class DownloadManager:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.settings.downloads_dir.mkdir(parents=True, exist_ok=True)
+        self._registry_path = self.settings.downloads_dir / DOWNLOAD_REGISTRY_FILENAME
         self._jobs: dict[str, _DownloadRecord] = {}
         self._active_jobs_by_video_id: dict[str, str] = {}
         self._lock = threading.RLock()
         self._worker_semaphore = threading.BoundedSemaphore(
             max(1, self.settings.max_concurrent_downloads)
         )
+        self._restore_jobs_from_disk()
 
     def get_runtime_status(self) -> DownloadRuntimeStatus:
         missing: list[str] = []
+        ffmpeg_binary = self._resolve_ffmpeg_binary()
 
         if yt_dlp is None:
             missing.append("Install yt-dlp in backend/.venv with `pip install yt-dlp`.")
 
-        if shutil.which("ffmpeg") is None:
-            missing.append("Install ffmpeg and add it to your PATH.")
+        if ffmpeg_binary is None:
+            missing.append(
+                "Install ffmpeg and add it to your PATH, or set FFMPEG_BINARY in backend/.env."
+            )
 
         return DownloadRuntimeStatus(
             available=not missing,
@@ -166,6 +174,7 @@ class DownloadManager:
             )
             self._jobs[job_id] = record
             self._active_jobs_by_video_id[request.video_id] = job_id
+            self._persist_registry_unlocked()
 
         asyncio.create_task(self._run_job(job_id))
         return record.to_public_model(), False
@@ -239,12 +248,19 @@ class DownloadManager:
             status_detail="Preparing YouTube audio download...",
         )
 
+        ffmpeg_binary = self._resolve_ffmpeg_binary()
+        if ffmpeg_binary is None:
+            raise DownloadRuntimeError(
+                "ffmpeg could not be found. Install it or set FFMPEG_BINARY in backend/.env."
+            )
+
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": output_template,
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "ffmpeg_location": ffmpeg_binary,
             "progress_hooks": [progress_hook],
             "postprocessors": [
                 {
@@ -305,6 +321,7 @@ class DownloadManager:
                 setattr(job, field_name, value)
 
             job.updated_at = _utc_now()
+            self._persist_registry_unlocked()
 
     @staticmethod
     def _locate_final_file(job_dir: Path) -> Path | None:
@@ -313,6 +330,118 @@ class DownloadManager:
             return None
 
         return matches[0]
+
+    def _resolve_ffmpeg_binary(self) -> str | None:
+        configured = self.settings.ffmpeg_binary.strip()
+        if not configured:
+            configured = "ffmpeg"
+
+        configured_path = Path(configured)
+        if configured_path.is_file():
+            return str(configured_path)
+
+        discovered = shutil.which(configured)
+        if discovered:
+            return discovered
+
+        return None
+
+    def _restore_jobs_from_disk(self) -> None:
+        if not self._registry_path.exists():
+            return
+
+        try:
+            payload = json.loads(self._registry_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+
+        if not isinstance(payload, list):
+            return
+
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+
+            try:
+                job = self._deserialize_job(item)
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            if job.status in ACTIVE_JOB_STATUSES:
+                job.status = "failed"
+                job.status_detail = "Download interrupted by backend restart."
+                job.error_message = "The backend restarted before this job finished."
+                job.progress_percent = 0
+                job.file_name = None
+                job.file_size_bytes = None
+                job.file_path = None
+                job.updated_at = _utc_now()
+
+            if job.status == "completed" and job.file_path and not job.file_path.exists():
+                job.status = "failed"
+                job.status_detail = "Recorded MP3 file is missing."
+                job.error_message = "The saved MP3 file could not be found on disk."
+                job.file_name = None
+                job.file_size_bytes = None
+                job.file_path = None
+                job.progress_percent = 0
+                job.updated_at = _utc_now()
+
+            self._jobs[job.id] = job
+
+        with self._lock:
+            self._persist_registry_unlocked()
+
+    def _persist_registry_unlocked(self) -> None:
+        payload = [self._serialize_job(job) for job in self._jobs.values()]
+        self._registry_path.write_text(
+            json.dumps(payload, indent=2),
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _serialize_job(job: _DownloadRecord) -> dict[str, object]:
+        return {
+            "id": job.id,
+            "video_id": job.video_id,
+            "title": job.title,
+            "channel_title": job.channel_title,
+            "thumbnail_url": job.thumbnail_url,
+            "source_url": job.source_url,
+            "status": job.status,
+            "status_detail": job.status_detail,
+            "progress_percent": job.progress_percent,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at,
+            "error_message": job.error_message,
+            "file_name": job.file_name,
+            "file_size_bytes": job.file_size_bytes,
+            "file_path": str(job.file_path) if job.file_path else None,
+        }
+
+    @staticmethod
+    def _deserialize_job(payload: dict[str, object]) -> _DownloadRecord:
+        file_path = payload.get("file_path")
+
+        return _DownloadRecord(
+            id=str(payload["id"]),
+            video_id=str(payload["video_id"]),
+            title=str(payload["title"]),
+            channel_title=str(payload.get("channel_title", "")),
+            thumbnail_url=str(payload["thumbnail_url"]) if payload.get("thumbnail_url") else None,
+            source_url=str(payload["source_url"]),
+            status=str(payload["status"]),
+            status_detail=str(payload["status_detail"]) if payload.get("status_detail") else None,
+            progress_percent=int(payload.get("progress_percent", 0)),
+            created_at=str(payload["created_at"]),
+            updated_at=str(payload["updated_at"]),
+            error_message=str(payload["error_message"]) if payload.get("error_message") else None,
+            file_name=str(payload["file_name"]) if payload.get("file_name") else None,
+            file_size_bytes=(
+                int(payload["file_size_bytes"]) if payload.get("file_size_bytes") is not None else None
+            ),
+            file_path=Path(str(file_path)) if file_path else None,
+        )
 
 
 _download_manager: DownloadManager | None = None

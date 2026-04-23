@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_default_max_results: int = 12
     request_timeout_seconds: float = 15.0
+    youtube_search_cache_ttl_seconds: int = Field(
+        default=300,
+        alias="YOUTUBE_SEARCH_CACHE_TTL_SECONDS",
+    )
+    ffmpeg_binary: str = Field(default="ffmpeg", alias="FFMPEG_BINARY")
     downloads_dir: Path = Field(
         default=BACKEND_DIR / "data" / "downloads",
         alias="DOWNLOADS_DIR",

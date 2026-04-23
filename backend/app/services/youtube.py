@@ -1,3 +1,5 @@
+import threading
+import time
 import re
 from typing import Any
 
@@ -11,6 +13,8 @@ DURATION_PATTERN = re.compile(
 )
 
 THUMBNAIL_PRIORITY = ("maxres", "high", "medium", "default")
+_search_cache: dict[tuple[str, int], tuple[float, list[VideoSearchResult]]] = {}
+_search_cache_lock = threading.RLock()
 
 
 class YouTubeConfigError(RuntimeError):
@@ -111,6 +115,13 @@ async def search_youtube_videos(query: str, max_results: int) -> list[VideoSearc
 
     timeout = httpx.Timeout(settings.request_timeout_seconds)
     normalized_limit = min(max_results, 24)
+    cache_key = (query.strip().lower(), normalized_limit)
+    now = time.time()
+
+    with _search_cache_lock:
+        cached_entry = _search_cache.get(cache_key)
+        if cached_entry and cached_entry[0] > now:
+            return list(cached_entry[1])
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         search_payload = await _fetch_json(
@@ -199,4 +210,15 @@ async def search_youtube_videos(query: str, max_results: int) -> list[VideoSearc
                 )
             )
 
-        return results
+        expires_at = now + max(0, settings.youtube_search_cache_ttl_seconds)
+
+        with _search_cache_lock:
+            _search_cache[cache_key] = (expires_at, results)
+
+            expired_keys = [
+                key for key, (expiry, _) in _search_cache.items() if expiry <= time.time()
+            ]
+            for key in expired_keys:
+                _search_cache.pop(key, None)
+
+        return list(results)
