@@ -8,10 +8,10 @@ Implemented so far:
 
 - Phase 1: YouTube search and result cards
 - Phase 2: Local MP3 download queue, progress tracking, conversion flow, and file delivery
+- Phase 3: Core playlist management with persistent local playlists
 
 Still coming:
 
-- Phase 3: Playlist management
 - Phase 4: Playlist export
 - Phase 5: Spotify playlist import
 - Phase 6: Recommendations
@@ -22,9 +22,10 @@ Still coming:
 backend/
   app/                  FastAPI API, services, and download job logic
   data/downloads/       Runtime-generated MP3 files (gitignored)
+  data/playlists/       Runtime-generated playlist registry (local only)
   .env.example          Backend environment template
 frontend/
-  src/                  React app, search UI, and download queue UI
+  src/                  React app, search UI, queue UI, and playlist UI
 markdown/
   *.md                  Planning and comparison notes
 ```
@@ -44,7 +45,9 @@ Create or update `backend/.env` with:
 ```env
 YOUTUBE_API_KEY=your_key_here
 FRONTEND_ORIGIN=http://localhost:5173
+YOUTUBE_SEARCH_CACHE_TTL_SECONDS=300
 DOWNLOADS_DIR=data/downloads
+PLAYLISTS_DIR=data/playlists
 MAX_CONCURRENT_DOWNLOADS=2
 FFMPEG_BINARY=ffmpeg
 ```
@@ -80,4 +83,6 @@ http://localhost:5173
 
 - `backend/.env` is gitignored and intended to stay local only.
 - Downloaded MP3 files under `backend/data/downloads/` are also gitignored.
+- The queue now supports removing failed entries and deleting completed MP3s directly from the app.
+- Playlists are persisted locally through a lightweight JSON registry.
 - This repo is currently structured for local development and personal use, not public deployment.

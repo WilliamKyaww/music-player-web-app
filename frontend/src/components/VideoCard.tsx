@@ -3,6 +3,10 @@ import type { DownloadJob, VideoSearchResult } from '../types'
 type VideoCardProps = {
   video: VideoSearchResult
   onDownload: (video: VideoSearchResult) => void
+  onAddToPlaylist: (video: VideoSearchResult) => void
+  canAddToPlaylist: boolean
+  playlistLabel: string
+  isAddingToPlaylist: boolean
   isSubmittingDownload: boolean
   latestDownload: DownloadJob | null
 }
@@ -41,6 +45,10 @@ function getDownloadButtonLabel(
 export function VideoCard({
   video,
   onDownload,
+  onAddToPlaylist,
+  canAddToPlaylist,
+  playlistLabel,
+  isAddingToPlaylist,
   isSubmittingDownload,
   latestDownload,
 }: VideoCardProps) {
@@ -88,10 +96,11 @@ export function VideoCard({
         <button
           className="video-card__button"
           type="button"
-          disabled
-          title="Phase 3 will add playlist support."
+          disabled={isAddingToPlaylist || !canAddToPlaylist}
+          title={canAddToPlaylist ? undefined : 'Create and select a playlist first.'}
+          onClick={() => onAddToPlaylist(video)}
         >
-          Playlist
+          {isAddingToPlaylist ? 'Adding...' : playlistLabel}
         </button>
         <button
           className={`video-card__button ${latestDownload ? `video-card__button--${latestDownload.status}` : ''}`}

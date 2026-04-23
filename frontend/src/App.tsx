@@ -1,13 +1,28 @@
 import { startTransition, useEffect, useEffectEvent, useState } from 'react'
-import { enqueueDownload, fetchDownloads } from './api/downloads'
+import {
+  enqueueDownload,
+  fetchDownloads,
+  removeDownload,
+} from './api/downloads'
+import {
+  addVideoToPlaylist,
+  createPlaylist,
+  deletePlaylist,
+  fetchPlaylists,
+  removePlaylistItem,
+  renamePlaylist,
+  reorderPlaylistItems,
+} from './api/playlists'
 import { searchVideos } from './api/search'
 import { DownloadQueuePanel } from './components/DownloadQueuePanel'
+import { PlaylistPanel } from './components/PlaylistPanel'
 import { SearchBar } from './components/SearchBar'
 import { StatusPanel } from './components/StatusPanel'
 import { VideoCard } from './components/VideoCard'
 import type {
   DownloadJob,
   DownloadRuntimeStatus,
+  Playlist,
   VideoSearchResult,
 } from './types'
 import './App.css'
@@ -28,6 +43,17 @@ function App() {
     null,
   )
   const [pendingDownloadVideoIds, setPendingDownloadVideoIds] = useState<string[]>([])
+  const [pendingDownloadRemovalIds, setPendingDownloadRemovalIds] = useState<string[]>([])
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
+  const [playlistsErrorMessage, setPlaylistsErrorMessage] = useState<string | null>(
+    null,
+  )
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false)
+  const [isMutatingPlaylist, setIsMutatingPlaylist] = useState(false)
+  const [pendingPlaylistVideoId, setPendingPlaylistVideoId] = useState<string | null>(
+    null,
+  )
 
   const runSearch = useEffectEvent(async (nextQuery: string, signal: AbortSignal) => {
     setStatus('loading')
@@ -117,6 +143,230 @@ function App() {
     }
   })
 
+  const handleRemoveDownload = useEffectEvent(
+    async (job: DownloadJob, deleteFile: boolean) => {
+      setPendingDownloadRemovalIds((current) =>
+        current.includes(job.id) ? current : [...current, job.id],
+      )
+
+      try {
+        await removeDownload(job.id, deleteFile)
+        startTransition(() => {
+          setDownloadJobs((current) => current.filter((item) => item.id !== job.id))
+          setDownloadsErrorMessage(null)
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not remove the download job.'
+
+        startTransition(() => {
+          setDownloadsErrorMessage(message)
+        })
+      } finally {
+        setPendingDownloadRemovalIds((current) =>
+          current.filter((id) => id !== job.id),
+        )
+      }
+    },
+  )
+
+  const loadPlaylists = useEffectEvent(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetchPlaylists(signal)
+      startTransition(() => {
+        setPlaylists(response.items)
+        setPlaylistsErrorMessage(null)
+        setActivePlaylistId((current) => {
+          if (current && response.items.some((playlist) => playlist.id === current)) {
+            return current
+          }
+
+          return response.items[0]?.id ?? null
+        })
+      })
+    } catch (error) {
+      if (signal?.aborted) {
+        return
+      }
+
+      const message =
+        error instanceof Error ? error.message : 'Could not refresh playlists.'
+
+      startTransition(() => {
+        setPlaylistsErrorMessage(message)
+      })
+    }
+  })
+
+  const handleCreatePlaylist = useEffectEvent(async (name: string) => {
+    setIsCreatingPlaylist(true)
+    try {
+      const playlist = await createPlaylist(name)
+      startTransition(() => {
+        setPlaylists((current) => [playlist, ...current])
+        setActivePlaylistId(playlist.id)
+        setPlaylistsErrorMessage(null)
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not create the playlist.'
+
+      startTransition(() => {
+        setPlaylistsErrorMessage(message)
+      })
+    } finally {
+      setIsCreatingPlaylist(false)
+    }
+  })
+
+  const handleRenamePlaylist = useEffectEvent(async (playlistId: string, name: string) => {
+    setIsMutatingPlaylist(true)
+    try {
+      const updated = await renamePlaylist(playlistId, name)
+      startTransition(() => {
+        setPlaylists((current) =>
+          current.map((playlist) => (playlist.id === updated.id ? updated : playlist)),
+        )
+        setPlaylistsErrorMessage(null)
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not rename the playlist.'
+
+      startTransition(() => {
+        setPlaylistsErrorMessage(message)
+      })
+    } finally {
+      setIsMutatingPlaylist(false)
+    }
+  })
+
+  const handleDeletePlaylist = useEffectEvent(async (playlistId: string) => {
+    setIsMutatingPlaylist(true)
+    try {
+      await deletePlaylist(playlistId)
+      startTransition(() => {
+        setPlaylists((current) => {
+          const next = current.filter((playlist) => playlist.id !== playlistId)
+          setActivePlaylistId((active) => {
+            if (active && active !== playlistId) {
+              return active
+            }
+            return next[0]?.id ?? null
+          })
+          return next
+        })
+        setPlaylistsErrorMessage(null)
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not delete the playlist.'
+
+      startTransition(() => {
+        setPlaylistsErrorMessage(message)
+      })
+    } finally {
+      setIsMutatingPlaylist(false)
+    }
+  })
+
+  const handleAddToPlaylist = useEffectEvent(async (video: VideoSearchResult) => {
+    if (!activePlaylistId) {
+      setPlaylistsErrorMessage('Create and select a playlist first.')
+      return
+    }
+
+    setPendingPlaylistVideoId(video.id)
+    setIsMutatingPlaylist(true)
+    try {
+      const updated = await addVideoToPlaylist(activePlaylistId, video)
+      startTransition(() => {
+        setPlaylists((current) =>
+          current.map((playlist) => (playlist.id === updated.id ? updated : playlist)),
+        )
+        setPlaylistsErrorMessage(null)
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not add this video to the playlist.'
+
+      startTransition(() => {
+        setPlaylistsErrorMessage(message)
+      })
+    } finally {
+      setPendingPlaylistVideoId(null)
+      setIsMutatingPlaylist(false)
+    }
+  })
+
+  const handleRemovePlaylistItem = useEffectEvent(
+    async (playlistId: string, itemId: string) => {
+      setIsMutatingPlaylist(true)
+      try {
+        const updated = await removePlaylistItem(playlistId, itemId)
+        startTransition(() => {
+          setPlaylists((current) =>
+            current.map((playlist) => (playlist.id === updated.id ? updated : playlist)),
+          )
+          setPlaylistsErrorMessage(null)
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not remove playlist item.'
+
+        startTransition(() => {
+          setPlaylistsErrorMessage(message)
+        })
+      } finally {
+        setIsMutatingPlaylist(false)
+      }
+    },
+  )
+
+  const handleMovePlaylistItem = useEffectEvent(
+    async (playlistId: string, itemId: string, direction: 'up' | 'down') => {
+      const playlist = playlists.find((entry) => entry.id === playlistId)
+      if (!playlist) {
+        return
+      }
+
+      const items = [...playlist.items].sort((left, right) => left.position - right.position)
+      const index = items.findIndex((item) => item.id === itemId)
+      if (index < 0) {
+        return
+      }
+
+      const targetIndex = direction === 'up' ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= items.length) {
+        return
+      }
+
+      const [movedItem] = items.splice(index, 1)
+      items.splice(targetIndex, 0, movedItem)
+      const orderedItemIds = items.map((item) => item.id)
+
+      setIsMutatingPlaylist(true)
+      try {
+        const updated = await reorderPlaylistItems(playlistId, orderedItemIds)
+        startTransition(() => {
+          setPlaylists((current) =>
+            current.map((entry) => (entry.id === updated.id ? updated : entry)),
+          )
+          setPlaylistsErrorMessage(null)
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not reorder the playlist.'
+
+        startTransition(() => {
+          setPlaylistsErrorMessage(message)
+        })
+      } finally {
+        setIsMutatingPlaylist(false)
+      }
+    },
+  )
+
   useEffect(() => {
     const trimmedQuery = query.trim()
 
@@ -156,6 +406,15 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadPlaylists(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
   const hasShortQuery = query.trim().length > 0 && query.trim().length < 2
   const hasActiveDownloads = downloadJobs.some((job) =>
     ['queued', 'downloading', 'converting'].includes(job.status),
@@ -178,6 +437,9 @@ function App() {
   function getLatestDownloadForVideo(videoId: string) {
     return downloadJobs.find((job) => job.video_id === videoId) ?? null
   }
+
+  const activePlaylist =
+    playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
 
   return (
     <div className="app-shell">
@@ -221,6 +483,23 @@ function App() {
           runtime={downloadRuntime}
           jobs={downloadJobs}
           errorMessage={downloadsErrorMessage}
+          pendingRemovalIds={pendingDownloadRemovalIds}
+          onRemoveJob={handleRemoveDownload}
+        />
+
+        <PlaylistPanel
+          playlists={playlists}
+          activePlaylistId={activePlaylist?.id ?? null}
+          errorMessage={playlistsErrorMessage}
+          isCreating={isCreatingPlaylist}
+          isMutating={isMutatingPlaylist}
+          pendingVideoId={pendingPlaylistVideoId}
+          onSelectPlaylist={setActivePlaylistId}
+          onCreatePlaylist={handleCreatePlaylist}
+          onRenamePlaylist={handleRenamePlaylist}
+          onDeletePlaylist={handleDeletePlaylist}
+          onRemoveItem={handleRemovePlaylistItem}
+          onMoveItem={handleMovePlaylistItem}
         />
 
         <section className="results-header" aria-live="polite">
@@ -235,7 +514,9 @@ function App() {
           <p className="results-header__body">
             {hasShortQuery
               ? 'Use at least two characters so we do not spam the API with weak queries.'
-              : 'Playlist management is still staged for Phase 3, but MP3 jobs are live now.'}
+              : activePlaylist
+                ? `Playlist actions target "${activePlaylist.name}" right now.`
+                : 'Create and select a playlist to use the Playlist button on result cards.'}
           </p>
         </section>
 
@@ -284,6 +565,12 @@ function App() {
                 key={video.id}
                 video={video}
                 onDownload={handleDownload}
+                onAddToPlaylist={handleAddToPlaylist}
+                canAddToPlaylist={Boolean(activePlaylist)}
+                playlistLabel={
+                  activePlaylist ? `Add to ${activePlaylist.name}` : 'Select playlist'
+                }
+                isAddingToPlaylist={pendingPlaylistVideoId === video.id}
                 isSubmittingDownload={pendingDownloadVideoIds.includes(video.id)}
                 latestDownload={getLatestDownloadForVideo(video.id)}
               />

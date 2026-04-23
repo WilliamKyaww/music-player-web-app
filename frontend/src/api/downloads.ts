@@ -2,6 +2,7 @@ import { apiFetchJson, getApiHref } from './client'
 import type {
   DownloadListResponse,
   EnqueueDownloadResponse,
+  RemoveDownloadResponse,
   VideoSearchResult,
 } from '../types'
 
@@ -23,6 +24,15 @@ export async function enqueueDownload(video: VideoSearchResult) {
       source_url: video.video_url,
     }),
   })
+}
+
+export async function removeDownload(downloadId: string, deleteFile = true) {
+  return apiFetchJson<RemoveDownloadResponse>(
+    `/api/downloads/${downloadId}?delete_file=${deleteFile ? 'true' : 'false'}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }
 
 export function getDownloadFileHref(downloadId: string) {

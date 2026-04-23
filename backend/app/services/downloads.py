@@ -142,6 +142,28 @@ class DownloadManager:
 
             return job.file_path
 
+    def remove_job(self, job_id: str, *, delete_file: bool = True) -> tuple[str, bool]:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            if job.status in ACTIVE_JOB_STATUSES:
+                raise DownloadRuntimeError(
+                    "Active downloads cannot be removed yet. Wait for the job to finish."
+                )
+
+            deleted_file = False
+            job_dir = self.settings.downloads_dir / job.id
+            if job_dir.exists() and (delete_file or job.file_path is None):
+                deleted_file = delete_file and job.file_path is not None and job.file_path.exists()
+                shutil.rmtree(job_dir, ignore_errors=True)
+
+            self._jobs.pop(job_id, None)
+            self._persist_registry_unlocked()
+
+            return job_id, deleted_file
+
     def enqueue_download(self, request: DownloadRequest) -> tuple[DownloadJob, bool]:
         runtime = self.get_runtime_status()
         if not runtime.available:

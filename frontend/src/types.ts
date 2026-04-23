@@ -57,3 +57,32 @@ export type EnqueueDownloadResponse = {
   job: DownloadJob
   deduplicated: boolean
 }
+
+export type RemoveDownloadResponse = {
+  removed_job_id: string
+  deleted_file: boolean
+}
+
+export type PlaylistItem = {
+  id: string
+  video_id: string
+  title: string
+  channel_title: string
+  thumbnail_url: string | null
+  source_url: string
+  duration_label: string | null
+  added_at: string
+  position: number
+}
+
+export type Playlist = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+  items: PlaylistItem[]
+}
+
+export type PlaylistListResponse = {
+  items: Playlist[]
+}

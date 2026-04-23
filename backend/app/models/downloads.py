@@ -45,3 +45,8 @@ class DownloadListResponse(BaseModel):
 class EnqueueDownloadResponse(BaseModel):
     job: DownloadJob
     deduplicated: bool
+
+
+class RemoveDownloadResponse(BaseModel):
+    removed_job_id: str
+    deleted_file: bool

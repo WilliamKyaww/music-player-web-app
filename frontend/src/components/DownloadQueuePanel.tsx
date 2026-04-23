@@ -5,6 +5,8 @@ type DownloadQueuePanelProps = {
   runtime: DownloadRuntimeStatus | null
   jobs: DownloadJob[]
   errorMessage: string | null
+  pendingRemovalIds: string[]
+  onRemoveJob: (job: DownloadJob, deleteFile: boolean) => void
 }
 
 function formatFileSize(fileSizeBytes: number | null) {
@@ -29,6 +31,8 @@ export function DownloadQueuePanel({
   runtime,
   jobs,
   errorMessage,
+  pendingRemovalIds,
+  onRemoveJob,
 }: DownloadQueuePanelProps) {
   return (
     <section className="downloads-panel">
@@ -110,6 +114,28 @@ export function DownloadQueuePanel({
                   >
                     Save MP3
                   </a>
+                ) : null}
+
+                {job.status === 'completed' ? (
+                  <button
+                    type="button"
+                    className="download-job__button download-job__button--danger"
+                    onClick={() => onRemoveJob(job, true)}
+                    disabled={pendingRemovalIds.includes(job.id)}
+                  >
+                    {pendingRemovalIds.includes(job.id) ? 'Removing...' : 'Delete file'}
+                  </button>
+                ) : null}
+
+                {job.status === 'failed' ? (
+                  <button
+                    type="button"
+                    className="download-job__button"
+                    onClick={() => onRemoveJob(job, false)}
+                    disabled={pendingRemovalIds.includes(job.id)}
+                  >
+                    {pendingRemovalIds.includes(job.id) ? 'Removing...' : 'Remove entry'}
+                  </button>
                 ) : null}
               </div>
             </article>
