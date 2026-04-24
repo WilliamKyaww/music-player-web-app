@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CheckIcon, PlusIcon } from './Icons'
 import type { Playlist } from '../types'
 
@@ -18,18 +18,24 @@ export function PlaylistPicker({
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
+  function openPicker() {
     if (activePlaylistId) {
       setSelectedIds([activePlaylistId])
       return
     }
 
     setSelectedIds(playlists[0] ? [playlists[0].id] : [])
-  }, [activePlaylistId, isOpen, playlists])
+  }
+
+  function handleTogglePicker() {
+    if (isOpen) {
+      setIsOpen(false)
+      return
+    }
+
+    openPicker()
+    setIsOpen(true)
+  }
 
   function togglePlaylist(playlistId: string) {
     setSelectedIds((current) =>
@@ -56,7 +62,7 @@ export function PlaylistPicker({
         aria-label="Add to one or more playlists"
         title="Add to one or more playlists"
         disabled={isSubmitting || playlists.length === 0}
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={handleTogglePicker}
       >
         <PlusIcon className="action-icon" />
       </button>

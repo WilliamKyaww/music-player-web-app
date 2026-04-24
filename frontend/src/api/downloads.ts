@@ -38,3 +38,7 @@ export async function removeDownload(downloadId: string, deleteFile = true) {
 export function getDownloadFileHref(downloadId: string) {
   return getApiHref(`/api/downloads/${downloadId}/file`)
 }
+
+export function getDownloadThumbnailHref(downloadId: string) {
+  return getApiHref(`/api/downloads/${downloadId}/thumbnail`)
+}

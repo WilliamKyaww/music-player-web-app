@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
+import mimetypes
 
 from app.models.downloads import (
     DownloadJob,
@@ -90,4 +91,23 @@ async def get_download_file(job_id: str) -> FileResponse:
         path=file_path,
         media_type="audio/mpeg",
         filename=job.file_name or file_path.name,
+    )
+
+
+@router.get("/downloads/{job_id}/thumbnail")
+async def get_download_thumbnail(job_id: str) -> FileResponse:
+    manager = get_download_manager()
+
+    try:
+        file_path = manager.get_thumbnail_path(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Download not found.") from exc
+    except DownloadRuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    media_type = mimetypes.guess_type(file_path.name)[0] or "image/jpeg"
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        filename=file_path.name,
     )

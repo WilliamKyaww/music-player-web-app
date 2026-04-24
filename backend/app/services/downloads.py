@@ -1,5 +1,6 @@
 import asyncio
 import json
+import mimetypes
 import re
 import shutil
 import threading
@@ -10,6 +11,8 @@ from uuid import uuid4
 
 from app.core.config import get_settings
 from app.models.downloads import DownloadJob, DownloadRequest, DownloadRuntimeStatus
+
+import httpx
 
 try:
     import yt_dlp
@@ -43,11 +46,15 @@ class _DownloadRecord:
     file_name: str | None = None
     file_size_bytes: int | None = None
     file_path: Path | None = None
+    thumbnail_path: Path | None = None
 
     def to_public_model(self) -> DownloadJob:
         download_path = None
         if self.status == "completed" and self.file_path:
             download_path = f"/api/downloads/{self.id}/file"
+        thumbnail_path = None
+        if self.thumbnail_path and self.thumbnail_path.exists():
+            thumbnail_path = f"/api/downloads/{self.id}/thumbnail"
 
         return DownloadJob(
             id=self.id,
@@ -65,6 +72,7 @@ class _DownloadRecord:
             file_name=self.file_name,
             file_size_bytes=self.file_size_bytes,
             download_path=download_path,
+            thumbnail_path=thumbnail_path,
         )
 
 
@@ -141,6 +149,17 @@ class DownloadManager:
                 raise DownloadRuntimeError("This download is not ready yet.")
 
             return job.file_path
+
+    def get_thumbnail_path(self, job_id: str) -> Path:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            if job.thumbnail_path is None or not job.thumbnail_path.exists():
+                raise DownloadRuntimeError("This download does not have a saved thumbnail.")
+
+            return job.thumbnail_path
 
     def get_ffmpeg_binary(self) -> str | None:
         return self._resolve_ffmpeg_binary()
@@ -286,6 +305,7 @@ class DownloadManager:
             job_dir = settings.downloads_dir / job_id
 
         job_dir.mkdir(parents=True, exist_ok=True)
+        thumbnail_path = self._download_thumbnail(job_id, job_dir)
         output_template = str(job_dir / f"{safe_base_name}.%(ext)s")
 
         def progress_hook(progress_data: dict) -> None:
@@ -371,6 +391,7 @@ class DownloadManager:
             file_name=final_file.name,
             file_size_bytes=final_file.stat().st_size,
             file_path=final_file,
+            thumbnail_path=thumbnail_path,
             error_message=None,
         )
 
@@ -427,6 +448,37 @@ class DownloadManager:
 
         return matches[0]
 
+    def _download_thumbnail(self, job_id: str, job_dir: Path) -> Path | None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            thumbnail_url = job.thumbnail_url if job else None
+
+        if not thumbnail_url:
+            return None
+
+        try:
+            with httpx.Client(timeout=httpx.Timeout(10.0), follow_redirects=True) as client:
+                response = client.get(thumbnail_url)
+                response.raise_for_status()
+        except httpx.HTTPError:
+            return None
+
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip()
+        if not content_type.startswith("image/"):
+            return None
+
+        extension = mimetypes.guess_extension(content_type) or ".jpg"
+        if extension == ".jpe":
+            extension = ".jpg"
+
+        thumbnail_path = job_dir / f"thumbnail{extension}"
+        try:
+            thumbnail_path.write_bytes(response.content)
+        except OSError:
+            return None
+
+        return thumbnail_path
+
     def _resolve_ffmpeg_binary(self) -> str | None:
         configured = self.settings.ffmpeg_binary.strip()
         if not configured:
@@ -471,6 +523,7 @@ class DownloadManager:
                 job.file_name = None
                 job.file_size_bytes = None
                 job.file_path = None
+                job.thumbnail_path = None
                 job.updated_at = _utc_now()
 
             if job.status == "completed" and job.file_path and not job.file_path.exists():
@@ -480,6 +533,7 @@ class DownloadManager:
                 job.file_name = None
                 job.file_size_bytes = None
                 job.file_path = None
+                job.thumbnail_path = None
                 job.progress_percent = 0
                 job.updated_at = _utc_now()
 
@@ -513,11 +567,13 @@ class DownloadManager:
             "file_name": job.file_name,
             "file_size_bytes": job.file_size_bytes,
             "file_path": str(job.file_path) if job.file_path else None,
+            "thumbnail_path": str(job.thumbnail_path) if job.thumbnail_path else None,
         }
 
     @staticmethod
     def _deserialize_job(payload: dict[str, object]) -> _DownloadRecord:
         file_path = payload.get("file_path")
+        thumbnail_path = payload.get("thumbnail_path")
 
         return _DownloadRecord(
             id=str(payload["id"]),
@@ -537,6 +593,7 @@ class DownloadManager:
                 int(payload["file_size_bytes"]) if payload.get("file_size_bytes") is not None else None
             ),
             file_path=Path(str(file_path)) if file_path else None,
+            thumbnail_path=Path(str(thumbnail_path)) if thumbnail_path else None,
         )
 
 

@@ -42,8 +42,17 @@ export function PlaylistPanel({
   const [renameTarget, setRenameTarget] = useState<Playlist | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Playlist | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
+  const normalizedSearch = searchQuery.trim().toLowerCase()
+  const filteredPlaylists = normalizedSearch
+    ? playlists.filter((playlist) =>
+        [playlist.name, ...playlist.items.map((item) => item.title)]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch)),
+      )
+    : playlists
 
   function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -87,7 +96,7 @@ export function PlaylistPanel({
   return (
     <section className="playlists-panel">
       <div className="playlists-panel__header">
-        <h2>Playlists</h2>
+        <h2>Saved Playlists</h2>
       </div>
 
       {errorMessage ? (
@@ -97,24 +106,42 @@ export function PlaylistPanel({
         </div>
       ) : null}
 
-      <form className="playlist-create" onSubmit={handleCreateSubmit}>
-        <input
-          className="playlist-create__input"
-          type="text"
-          value={draftName}
-          placeholder="New playlist name"
-          onChange={(event) => setDraftName(event.target.value)}
-          disabled={isCreating}
-        />
-        <button
-          className="playlist-create__button"
-          type="submit"
-          disabled={isCreating || !draftName.trim()}
-        >
-          <PlusIcon className="action-icon action-icon--small" />
-          <span>{isCreating ? 'Creating...' : 'Create playlist'}</span>
-        </button>
-      </form>
+      <div className="playlist-tools">
+        <form className="playlist-create playlist-create--card" onSubmit={handleCreateSubmit}>
+          <span className="playlist-create__label">New playlist</span>
+          <div className="playlist-create__controls">
+            <input
+              className="playlist-create__input"
+              type="text"
+              value={draftName}
+              placeholder="Name it"
+              onChange={(event) => setDraftName(event.target.value)}
+              disabled={isCreating}
+            />
+            <button
+              className="playlist-create__button"
+              type="submit"
+              disabled={isCreating || !draftName.trim()}
+              title="Create playlist"
+            >
+              <PlusIcon className="action-icon action-icon--small" />
+              <span>{isCreating ? 'Creating...' : 'Create'}</span>
+            </button>
+          </div>
+        </form>
+
+        <label className="library-search" htmlFor="saved-playlists-search">
+          <span className="library-search__label">Search playlists</span>
+          <input
+            id="saved-playlists-search"
+            className="library-search__input"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Filter by playlist or track"
+          />
+        </label>
+      </div>
 
       <div className="playlists-layout">
         <div className="playlist-list">
@@ -122,9 +149,14 @@ export function PlaylistPanel({
             <div className="playlists-panel__alert">
               <p>No playlists yet</p>
             </div>
+          ) : filteredPlaylists.length === 0 ? (
+            <div className="playlists-panel__alert">
+              <p>No playlists match your search</p>
+            </div>
           ) : (
-            playlists.map((playlist) => {
+            filteredPlaylists.map((playlist) => {
               const isActive = playlist.id === activePlaylist?.id
+              const cover = playlist.items.find((item) => item.thumbnail_url)?.thumbnail_url
               return (
                 <article
                   className={`playlist-card ${isActive ? 'playlist-card--active' : ''}`}
@@ -140,6 +172,9 @@ export function PlaylistPanel({
                     }
                   }}
                 >
+                  <div className="playlist-card__cover" aria-hidden="true">
+                    {cover ? <img src={cover} alt="" loading="lazy" /> : <span>{playlist.name.slice(0, 1).toUpperCase()}</span>}
+                  </div>
                   <div className="playlist-card__main">
                     <span className="playlist-card__name">{playlist.name}</span>
                     <span className="playlist-card__meta">
@@ -199,6 +234,13 @@ export function PlaylistPanel({
                 <div className="playlist-track-list">
                   {activePlaylist.items.map((item, index) => (
                     <article className="playlist-track" key={item.id}>
+                      <div className="playlist-track__cover" aria-hidden="true">
+                        {item.thumbnail_url ? (
+                          <img src={item.thumbnail_url} alt="" loading="lazy" />
+                        ) : (
+                          <span>{item.title.slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </div>
                       <div className="playlist-track__meta">
                         <span className="playlist-track__position">{index + 1}</span>
                         <div>

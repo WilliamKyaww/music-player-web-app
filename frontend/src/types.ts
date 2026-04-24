@@ -46,6 +46,7 @@ export type DownloadJob = {
   file_name: string | null
   file_size_bytes: number | null
   download_path: string | null
+  thumbnail_path: string | null
 }
 
 export type DownloadListResponse = {

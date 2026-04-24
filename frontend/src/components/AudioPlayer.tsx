@@ -4,6 +4,7 @@ import { PauseIcon, PlayIcon, VolumeIcon } from './Icons'
 type AudioPlayerProps = {
   videoId: string | null
   title: string | null
+  thumbnailUrl: string | null
   streamUrl: string | null
   onClose: () => void
 }
@@ -11,6 +12,7 @@ type AudioPlayerProps = {
 export function AudioPlayer({
   videoId,
   title,
+  thumbnailUrl,
   streamUrl,
   onClose,
 }: AudioPlayerProps) {
@@ -25,7 +27,6 @@ export function AudioPlayer({
     if (!audio || !streamUrl) return
 
     audio.src = streamUrl
-    audio.volume = volume
     audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
 
     return () => {
@@ -96,6 +97,14 @@ export function AudioPlayer({
         preload="metadata"
       />
 
+      <div className="audio-player__artwork" aria-hidden="true">
+        {thumbnailUrl ? (
+          <img src={thumbnailUrl} alt="" />
+        ) : (
+          <span>{(title || 'S').slice(0, 1).toUpperCase()}</span>
+        )}
+      </div>
+
       <button
         type="button"
         className="audio-player__play-btn"
@@ -145,7 +154,7 @@ export function AudioPlayer({
         onClick={onClose}
         aria-label="Close player"
       >
-        ✕
+        x
       </button>
     </div>
   )

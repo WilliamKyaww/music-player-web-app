@@ -35,6 +35,7 @@ class DownloadJob(BaseModel):
     file_name: str | None = None
     file_size_bytes: int | None = None
     download_path: str | None = None
+    thumbnail_path: str | None = None
 
 
 class DownloadListResponse(BaseModel):
