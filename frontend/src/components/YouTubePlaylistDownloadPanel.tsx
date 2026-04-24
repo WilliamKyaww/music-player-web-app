@@ -41,14 +41,8 @@ export function YouTubePlaylistDownloadPanel({
 
   return (
     <section className="youtube-playlist-panel">
-      <div className="spotify-panel__header">
-        <div>
-          <p className="results-header__label">YouTube playlist export</p>
-          <h3>Download a YouTube playlist directly</h3>
-        </div>
-        <p className="spotify-panel__body">
-          Paste a YouTube playlist URL and export it straight to a ZIP of MP3s or a single combined MP3 without creating an in-app playlist first.
-        </p>
+      <div className="exports-panel__header">
+        <h3>YouTube Playlist Export</h3>
       </div>
 
       <div className="spotify-panel__form">
@@ -172,10 +166,7 @@ export function YouTubePlaylistDownloadPanel({
         </div>
       ) : (
         <div className="playlists-panel__alert">
-          <h3>No YouTube playlist export yet</h3>
-          <p>
-            Paste a YouTube playlist link above to export it directly without first creating an in-app playlist.
-          </p>
+          <p>No YouTube playlist exports yet</p>
         </div>
       )}
     </section>

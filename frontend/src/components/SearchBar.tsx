@@ -7,7 +7,6 @@ type SearchBarProps = {
 export function SearchBar({ query, onQueryChange, isLoading }: SearchBarProps) {
   return (
     <label className="search-panel" htmlFor="search-input">
-      <span className="search-panel__eyebrow">Phase 1 search console</span>
       <div className="search-panel__row">
         <svg
           className="search-panel__icon"
@@ -26,7 +25,7 @@ export function SearchBar({ query, onQueryChange, isLoading }: SearchBarProps) {
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search songs, artists, albums, or live sessions"
+          placeholder="Search songs, artists, or albums"
           autoComplete="off"
           spellCheck={false}
         />
@@ -38,9 +37,7 @@ export function SearchBar({ query, onQueryChange, isLoading }: SearchBarProps) {
             <span className="search-panel__hint search-panel__hint--loading">
               Searching
             </span>
-          ) : (
-            <span className="search-panel__hint">YouTube Data API</span>
-          )}
+          ) : null}
         </div>
       </div>
     </label>

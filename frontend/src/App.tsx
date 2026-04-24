@@ -20,7 +20,11 @@ import {
 } from './api/playlists'
 import { previewSpotifyPlaylist } from './api/spotify'
 import { searchVideos } from './api/search'
+import { getStreamUrl } from './api/streaming'
+import { createYouTubePlaylistExport } from './api/youtubePlaylists'
+import { AudioPlayer } from './components/AudioPlayer'
 import { DownloadQueuePanel } from './components/DownloadQueuePanel'
+import { VideoIcon, ListIcon, SunIcon, MoonIcon } from './components/Icons'
 import { PlaylistExportPanel } from './components/PlaylistExportPanel'
 import { PlaylistPanel } from './components/PlaylistPanel'
 import { SearchBar } from './components/SearchBar'
@@ -28,7 +32,6 @@ import { SpotifyImportPanel } from './components/SpotifyImportPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { VideoCard } from './components/VideoCard'
 import { YouTubePlaylistDownloadPanel } from './components/YouTubePlaylistDownloadPanel'
-import { createYouTubePlaylistExport } from './api/youtubePlaylists'
 import type {
   DownloadJob,
   DownloadRuntimeStatus,
@@ -40,7 +43,20 @@ import type {
 } from './types'
 import './App.css'
 
+type PageId = 'video' | 'playlist'
+
+function getInitialTheme(): 'light' | 'dark' {
+  try {
+    const stored = localStorage.getItem('spotimy-theme')
+    if (stored === 'dark' || stored === 'light') return stored
+  } catch {}
+  return 'light'
+}
+
 function App() {
+  const [activePage, setActivePage] = useState<PageId>('video')
+  const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme)
+  const [nowPlaying, setNowPlaying] = useState<{ videoId: string; title: string } | null>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<VideoSearchResult[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
@@ -580,7 +596,6 @@ function App() {
     }
   }, [])
 
-  const hasShortQuery = query.trim().length > 0 && query.trim().length < 2
   const hasActiveDownloads = downloadJobs.some((job) =>
     ['queued', 'downloading', 'converting'].includes(job.status),
   )
@@ -620,114 +635,122 @@ function App() {
     return downloadJobs.find((job) => job.video_id === videoId) ?? null
   }
 
+  // Keep theme in sync with DOM and localStorage.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try { localStorage.setItem('spotimy-theme', theme) } catch {}
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
+
+  function handlePlayVideo(videoId: string, title: string) {
+    setNowPlaying({ videoId, title })
+  }
+
+  function handlePlayDownload(job: DownloadJob) {
+    handlePlayVideo(job.video_id, job.title)
+  }
+
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
 
   return (
     <div className="app-shell">
-      <header className="hero">
-        <div className="hero__nav">
-          <p className="brand">SpotiMy</p>
-          <span className="hero__phase">Phase 3 live</span>
+      <nav className="app-nav">
+        <div className="app-nav__tabs">
+          <button
+            type="button"
+            className={`app-nav__tab ${activePage === 'video' ? 'app-nav__tab--active' : ''}`}
+            onClick={() => setActivePage('video')}
+          >
+            <VideoIcon className="app-nav__tab-icon" />
+            YouTube Video
+          </button>
+          <button
+            type="button"
+            className={`app-nav__tab ${activePage === 'playlist' ? 'app-nav__tab--active' : ''}`}
+            onClick={() => setActivePage('playlist')}
+          >
+            <ListIcon className="app-nav__tab-icon" />
+            YouTube Playlist
+          </button>
         </div>
-
-        <div className="hero__content">
-          <div className="hero__copy">
-            <p className="hero__eyebrow">Playlist-driven local music workflow</p>
-            <h1>Search, download, sort, and organize songs across playlists.</h1>
-            <p className="hero__lead">
-              The app now combines the full download queue with persistent playlist
-              management, including multi-playlist add flows and quick track-order controls.
-            </p>
-          </div>
-
-          <aside className="hero__note">
-            <h2>What ships in Phase 3</h2>
-            <ul>
-              <li>Persistent local playlists with CRUD support</li>
-              <li>Multi-playlist add from search result cards</li>
-              <li>Queue cleanup controls for completed and failed jobs</li>
-              <li>Icon-based controls for playlist and download actions</li>
-            </ul>
-          </aside>
+        <div className="app-nav__actions">
+          {hasActiveDownloads || hasActiveExports ? (
+            <span className="app-nav__status">Processing…</span>
+          ) : null}
+          <button
+            type="button"
+            className="app-nav__theme-toggle"
+            onClick={toggleTheme}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            {theme === 'light' ? <MoonIcon className="app-nav__theme-icon" /> : <SunIcon className="app-nav__theme-icon" />}
+          </button>
         </div>
-      </header>
+      </nav>
 
       <main className="workspace">
-        <SearchBar
-          query={query}
-          onQueryChange={setQuery}
-          isLoading={status === 'loading'}
-        />
+        {activePage === 'video' ? (
+          <>
+            <SearchBar
+              query={query}
+              onQueryChange={setQuery}
+              isLoading={status === 'loading'}
+            />
 
-        <DownloadQueuePanel
-          runtime={downloadRuntime}
-          jobs={downloadJobs}
-          errorMessage={downloadsErrorMessage}
-          pendingRemovalIds={pendingDownloadRemovalIds}
-          onRemoveJob={handleRemoveDownload}
-        />
+            <DownloadQueuePanel
+              runtime={downloadRuntime}
+              jobs={downloadJobs}
+              errorMessage={downloadsErrorMessage}
+              pendingRemovalIds={pendingDownloadRemovalIds}
+              onRemoveJob={handleRemoveDownload}
+              onPlay={handlePlayDownload}
+            />
 
-        <PlaylistPanel
-          playlists={playlists}
-          activePlaylistId={activePlaylist?.id ?? null}
-          errorMessage={playlistsErrorMessage}
-          isCreating={isCreatingPlaylist}
-          isMutating={isMutatingPlaylist}
-          pendingVideoId={pendingPlaylistVideoId}
-          onSelectPlaylist={setActivePlaylistId}
-          onCreatePlaylist={handleCreatePlaylist}
-          onRenamePlaylist={handleRenamePlaylist}
-          onDeletePlaylist={handleDeletePlaylist}
-          onRemoveItem={handleRemovePlaylistItem}
-          onMoveItem={handleMovePlaylistItem}
-        />
+            <PlaylistPanel
+              playlists={playlists}
+              activePlaylistId={activePlaylist?.id ?? null}
+              errorMessage={playlistsErrorMessage}
+              isCreating={isCreatingPlaylist}
+              isMutating={isMutatingPlaylist}
+              pendingVideoId={pendingPlaylistVideoId}
+              onSelectPlaylist={setActivePlaylistId}
+              onCreatePlaylist={handleCreatePlaylist}
+              onRenamePlaylist={handleRenamePlaylist}
+              onDeletePlaylist={handleDeletePlaylist}
+              onRemoveItem={handleRemovePlaylistItem}
+              onMoveItem={handleMovePlaylistItem}
+            />
 
-        <PlaylistExportPanel
-          activePlaylist={activePlaylist}
-          exportJobs={exportJobs}
-          errorMessage={exportsErrorMessage}
-          isCreatingExport={isCreatingExport}
-          pendingRemovalIds={pendingExportRemovalIds}
-          onCreateExport={handleCreateExport}
-          onRemoveExport={handleRemoveExport}
-        />
+            <PlaylistExportPanel
+              activePlaylist={activePlaylist}
+              exportJobs={exportJobs}
+              errorMessage={exportsErrorMessage}
+              isCreatingExport={isCreatingExport}
+              pendingRemovalIds={pendingExportRemovalIds}
+              onCreateExport={handleCreateExport}
+              onRemoveExport={handleRemoveExport}
+            />
 
-        <YouTubePlaylistDownloadPanel
-          exportJobs={exportJobs}
-          errorMessage={exportsErrorMessage}
-          isCreating={isCreatingYouTubePlaylistExport}
-          pendingRemovalIds={pendingExportRemovalIds}
-          onCreateExport={handleCreateYouTubePlaylistExport}
-          onRemoveExport={handleRemoveExport}
-        />
+            <details className="collapsible-section">
+              <summary className="collapsible-section__toggle">Spotify Import (preview)</summary>
+              <SpotifyImportPanel
+                preview={spotifyPreview}
+                errorMessage={spotifyPreviewErrorMessage}
+                isLoading={isLoadingSpotifyPreview}
+                onPreview={handleSpotifyPreview}
+              />
+            </details>
 
-        <SpotifyImportPanel
-          preview={spotifyPreview}
-          errorMessage={spotifyPreviewErrorMessage}
-          isLoading={isLoadingSpotifyPreview}
-          onPreview={handleSpotifyPreview}
-        />
-
-        <section className="results-header" aria-live="polite">
-          <div>
-            <p className="results-header__label">Search results</p>
-            <h2>
-              {status === 'success' && activeQuery
-                ? `${results.length} result${results.length === 1 ? '' : 's'} for "${activeQuery}"`
-                : 'Ready when you are'}
-            </h2>
-          </div>
-          <p className="results-header__body">
-            {hasShortQuery
-              ? 'Use at least two characters so we do not spam the API with weak queries.'
-              : activePlaylist
-                ? `The plus action preselects "${activePlaylist.name}" but you can target multiple playlists.`
-                : playlists.length > 0
-                  ? 'Use the plus action on a result card to choose one or more playlists.'
-                  : 'Create a playlist first to start organizing search results.'}
+        {status === 'success' && activeQuery ? (
+          <p className="results-count" aria-live="polite">
+            {results.length} result{results.length === 1 ? '' : 's'} for "{activeQuery}"
           </p>
-        </section>
+        ) : null}
 
         {status === 'error' && errorMessage ? (
           <StatusPanel
@@ -739,15 +762,15 @@ function App() {
 
         {status === 'idle' && !query.trim() ? (
           <StatusPanel
-            title="Start with a song, artist, or album"
-            body="Once your backend has a YouTube API key, searches will appear here automatically as you type."
+            title="Search for something"
+            body="Results appear as you type."
           />
         ) : null}
 
         {status === 'success' && results.length === 0 ? (
           <StatusPanel
-            title="No matching videos yet"
-            body="Try a broader search, remove extra words, or search by artist and track name together."
+            title="No results"
+            body="Try a different search."
           />
         ) : null}
 
@@ -775,9 +798,9 @@ function App() {
                 video={video}
                 onDownload={handleDownload}
                 onAddToPlaylists={handleAddToPlaylists}
+                onPlay={handlePlayVideo}
                 playlists={playlists}
                 activePlaylistId={activePlaylist?.id ?? null}
-                canAddToPlaylist={playlists.length > 0}
                 isAddingToPlaylist={pendingPlaylistVideoId === video.id}
                 isSubmittingDownload={pendingDownloadVideoIds.includes(video.id)}
                 latestDownload={getLatestDownloadForVideo(video.id)}
@@ -785,7 +808,25 @@ function App() {
             ))}
           </section>
         ) : null}
+          </>
+        ) : (
+          <YouTubePlaylistDownloadPanel
+            exportJobs={exportJobs}
+            errorMessage={exportsErrorMessage}
+            isCreating={isCreatingYouTubePlaylistExport}
+            pendingRemovalIds={pendingExportRemovalIds}
+            onCreateExport={handleCreateYouTubePlaylistExport}
+            onRemoveExport={handleRemoveExport}
+          />
+        )}
       </main>
+
+      <AudioPlayer
+        videoId={nowPlaying?.videoId ?? null}
+        title={nowPlaying?.title ?? null}
+        streamUrl={nowPlaying ? getStreamUrl(nowPlaying.videoId) : null}
+        onClose={() => setNowPlaying(null)}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { DownloadIcon } from './Icons'
+import { DownloadIcon, PlayIcon } from './Icons'
 import { PlaylistPicker } from './PlaylistPicker'
 import type { DownloadJob, Playlist, VideoSearchResult } from '../types'
 
@@ -6,52 +6,23 @@ type VideoCardProps = {
   video: VideoSearchResult
   onDownload: (video: VideoSearchResult) => void
   onAddToPlaylists: (video: VideoSearchResult, playlistIds: string[]) => void
+  onPlay?: (videoId: string, title: string) => void
   playlists: Playlist[]
   activePlaylistId: string | null
-  canAddToPlaylist: boolean
   isAddingToPlaylist: boolean
   isSubmittingDownload: boolean
   latestDownload: DownloadJob | null
 }
 
-function getDownloadButtonLabel(
-  latestDownload: DownloadJob | null,
-  isSubmittingDownload: boolean,
-) {
-  if (isSubmittingDownload) {
-    return 'Queueing...'
-  }
 
-  if (!latestDownload) {
-    return 'Download MP3'
-  }
-
-  if (latestDownload.status === 'queued') {
-    return 'Queued'
-  }
-
-  if (latestDownload.status === 'downloading') {
-    return `Downloading ${latestDownload.progress_percent}%`
-  }
-
-  if (latestDownload.status === 'converting') {
-    return 'Converting...'
-  }
-
-  if (latestDownload.status === 'completed') {
-    return 'Downloaded'
-  }
-
-  return 'Retry MP3'
-}
 
 export function VideoCard({
   video,
   onDownload,
   onAddToPlaylists,
+  onPlay,
   playlists,
   activePlaylistId,
-  canAddToPlaylist,
   isAddingToPlaylist,
   isSubmittingDownload,
   latestDownload,
@@ -97,6 +68,17 @@ export function VideoCard({
         >
           Open on YouTube
         </a>
+        {onPlay ? (
+          <button
+            className="video-card__icon-button video-card__icon-button--play"
+            type="button"
+            title="Play audio"
+            aria-label="Play audio"
+            onClick={() => onPlay(video.id, video.title)}
+          >
+            <PlayIcon className="action-icon" />
+          </button>
+        ) : null}
         <button
           className={`video-card__icon-button ${latestDownload ? `video-card__icon-button--${latestDownload.status}` : ''}`}
           type="button"
@@ -123,16 +105,6 @@ export function VideoCard({
         />
       </div>
 
-      <div className="video-card__footer-note">
-        <span>{getDownloadButtonLabel(latestDownload, isSubmittingDownload)}</span>
-        <span>
-          {canAddToPlaylist
-            ? activePlaylistId
-              ? 'Active playlist preselected'
-              : 'Choose one or more playlists'
-            : 'Create a playlist first'}
-        </span>
-      </div>
     </article>
   )
 }

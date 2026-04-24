@@ -49,14 +49,11 @@ export function PlaylistExportPanel({
   return (
     <section className="exports-panel">
       <div className="exports-panel__header">
-        <div>
-          <p className="results-header__label">Playlist export</p>
-          <h3>
-            {activePlaylist
-              ? `Export "${activePlaylist.name}" as a ZIP`
-              : 'Select a playlist to export'}
-          </h3>
-        </div>
+        <h3>
+          {activePlaylist
+            ? `Export "${activePlaylist.name}"`
+            : 'Select a playlist to export'}
+        </h3>
 
         {activePlaylist ? (
           <div className="exports-panel__button-group">
@@ -89,13 +86,11 @@ export function PlaylistExportPanel({
 
       {!activePlaylist ? (
         <div className="playlists-panel__alert">
-          <h3>No playlist selected</h3>
-          <p>Select a playlist above to export it.</p>
+          <p>No playlist selected</p>
         </div>
       ) : activePlaylist.items.length === 0 ? (
         <div className="playlists-panel__alert">
-          <h3>No tracks to export</h3>
-          <p>Add songs to this playlist before creating a ZIP.</p>
+          <p>Add tracks first</p>
         </div>
       ) : orderedJobs.length > 0 ? (
         <div className="exports-panel__list">
@@ -183,8 +178,7 @@ export function PlaylistExportPanel({
         </div>
       ) : (
         <div className="playlists-panel__alert">
-          <h3>No export started yet</h3>
-          <p>Click Export ZIP or Export combined MP3 to build a downloadable archive for this playlist.</p>
+          <p>No exports yet</p>
         </div>
       )}
     </section>

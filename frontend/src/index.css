@@ -5,11 +5,23 @@
   --bg-deep: #f9f5ed;
   --surface: rgba(255, 255, 255, 0.84);
   --surface-strong: rgba(255, 255, 255, 0.96);
+  --surface-border: rgba(36, 42, 58, 0.08);
+  --surface-hover: rgba(255, 255, 255, 0.95);
   --text-strong: #202635;
   --text-muted: #596072;
   --text-soft: #7a8291;
   --accent: #b4511c;
   --accent-strong: #8a3e17;
+  --accent-bg: rgba(196, 92, 36, 0.12);
+  --panel-bg: rgba(255, 255, 255, 0.74);
+  --panel-inset: rgba(255, 255, 255, 0.65);
+  --card-bg: rgba(255, 255, 255, 0.72);
+  --input-bg: rgba(246, 240, 232, 0.72);
+  --danger-bg: rgba(255, 238, 236, 0.82);
+  --danger-border: rgba(176, 42, 42, 0.18);
+  --danger-color: #9b2727;
+  --success-bg: rgba(24, 125, 95, 0.14);
+  --success-color: #11624a;
   --heading: 'Space Grotesk', 'Avenir Next', 'Trebuchet MS', sans-serif;
   --body: 'DM Sans', 'Segoe UI', sans-serif;
   font-family: var(--body);
@@ -23,6 +35,40 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme='dark'] {
+  --bg: #111318;
+  --bg-deep: #181a21;
+  --surface: rgba(30, 33, 42, 0.92);
+  --surface-strong: rgba(36, 40, 52, 0.96);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface-hover: rgba(44, 48, 62, 0.95);
+  --text-strong: #eee8df;
+  --text-muted: #9da3b2;
+  --text-soft: #747b8e;
+  --accent: #e88040;
+  --accent-strong: #f09555;
+  --accent-bg: rgba(232, 128, 64, 0.16);
+  --panel-bg: rgba(26, 29, 38, 0.82);
+  --panel-inset: rgba(40, 44, 56, 0.45);
+  --card-bg: rgba(30, 33, 42, 0.78);
+  --input-bg: rgba(40, 44, 56, 0.72);
+  --danger-bg: rgba(80, 28, 28, 0.5);
+  --danger-border: rgba(220, 60, 60, 0.25);
+  --danger-color: #f06060;
+  --success-bg: rgba(24, 125, 95, 0.2);
+  --success-color: #50d4a8;
+  color: var(--text-strong);
+  background:
+    linear-gradient(180deg, rgba(17, 19, 24, 0.98), rgba(24, 26, 33, 0.98)),
+    var(--bg);
+}
+
+[data-theme='dark'] body::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
 }
 
 *,

@@ -40,13 +40,7 @@ export function SpotifyImportPanel({
   return (
     <section className="spotify-panel">
       <div className="spotify-panel__header">
-        <div>
-          <p className="results-header__label">Spotify import</p>
-          <h3>Phase 5 preview: inspect a Spotify playlist</h3>
-        </div>
-        <p className="spotify-panel__body">
-          Paste a public Spotify playlist URL to preview its tracks. Matching to YouTube is the next step after this slice.
-        </p>
+        <h3>Spotify Import</h3>
       </div>
 
       <form className="spotify-panel__form" onSubmit={handleSubmit}>
@@ -101,10 +95,7 @@ export function SpotifyImportPanel({
         </div>
       ) : (
         <div className="playlists-panel__alert">
-          <h3>No Spotify preview yet</h3>
-          <p>
-            This Phase 5 slice currently previews playlist metadata and tracks. YouTube matching comes next.
-          </p>
+          <p>Paste a playlist URL above to preview</p>
         </div>
       )}
     </section>

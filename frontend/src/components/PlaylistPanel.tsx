@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -44,10 +44,6 @@ export function PlaylistPanel({
   const [deleteTarget, setDeleteTarget] = useState<Playlist | null>(null)
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
-  const selectedPlaylistName = useMemo(
-    () => activePlaylist?.name ?? 'Select a playlist',
-    [activePlaylist],
-  )
 
   function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -91,13 +87,7 @@ export function PlaylistPanel({
   return (
     <section className="playlists-panel">
       <div className="playlists-panel__header">
-        <div>
-          <p className="results-header__label">Playlists</p>
-          <h2>Phase 3 playlist manager</h2>
-        </div>
-        <p className="playlists-panel__body">
-          Create a playlist, select it, then use the plus action on any search result to add tracks to one or more playlists.
-        </p>
+        <h2>Playlists</h2>
       </div>
 
       {errorMessage ? (
@@ -130,8 +120,7 @@ export function PlaylistPanel({
         <div className="playlist-list">
           {playlists.length === 0 ? (
             <div className="playlists-panel__alert">
-              <h3>No playlists yet</h3>
-              <p>Create one above to start collecting tracks.</p>
+              <p>No playlists yet</p>
             </div>
           ) : (
             playlists.map((playlist) => {
@@ -196,22 +185,15 @@ export function PlaylistPanel({
           {activePlaylist ? (
             <>
               <div className="playlist-detail__header">
-                <div>
-                  <p className="results-header__label">Selected playlist</p>
-                  <h3>{activePlaylist.name}</h3>
-                </div>
-                <span className="playlist-detail__selected-pill">{selectedPlaylistName}</span>
+                <h3>{activePlaylist.name}</h3>
                 {pendingVideoId ? (
-                  <span className="playlist-detail__status">Adding track...</span>
+                  <span className="playlist-detail__status">Adding…</span>
                 ) : null}
               </div>
 
               {activePlaylist.items.length === 0 ? (
                 <div className="playlists-panel__alert">
-                  <h3>No tracks yet</h3>
-                  <p>
-                    Select this playlist and use a search result card to add songs into it.
-                  </p>
+                  <p>No tracks yet</p>
                 </div>
               ) : (
                 <div className="playlist-track-list">
@@ -275,8 +257,7 @@ export function PlaylistPanel({
             </>
           ) : (
             <div className="playlists-panel__alert">
-              <h3>Select a playlist</h3>
-              <p>Create one or choose an existing playlist to manage its contents.</p>
+              <p>Select a playlist</p>
             </div>
           )}
         </div>
@@ -285,7 +266,7 @@ export function PlaylistPanel({
       {renameTarget ? (
         <ModalDialog
           title="Rename playlist"
-          description="Update the playlist name. This only changes the local playlist record."
+          description=""
           confirmLabel="Save changes"
           isBusy={isMutating}
           onConfirm={handleRenameConfirm}
