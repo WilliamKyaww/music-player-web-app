@@ -505,14 +505,21 @@
 .playlist-track-list {
   display: grid;
   gap: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.playlist-track-list {
+  max-height: 450px;
 }
 
 .playlist-card,
 .playlist-detail,
 .playlist-track {
   border-radius: 20px;
-  border: 1px solid rgba(36, 42, 58, 0.08);
-  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--surface-border);
+  background: var(--card-bg);
 }
 
 .playlist-card {
@@ -560,18 +567,28 @@
 }
 
 .playlist-card--active {
-  border-color: rgba(43, 0, 87, 0.42);
-  background: rgba(247, 241, 255, 0.96);
+  border-color: var(--accent);
+  background: var(--surface-strong);
   box-shadow:
-    inset 0 0 0 2px rgba(43, 0, 87, 0.16),
+    inset 0 0 0 2px var(--accent-bg),
     0 12px 24px rgba(43, 0, 87, 0.12);
   transform: translateY(-1px);
 }
 
+[data-theme='dark'] .playlist-card--active {
+  box-shadow:
+    inset 0 0 0 2px var(--accent-bg),
+    0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
 .playlist-card:hover {
-  border-color: rgba(43, 0, 87, 0.24);
-  background: rgba(248, 243, 255, 0.9);
+  border-color: var(--accent);
+  background: var(--surface-hover);
   box-shadow: 0 10px 20px rgba(20, 25, 32, 0.08);
+}
+
+[data-theme='dark'] .playlist-card:hover {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
 }
 
 .playlist-card:focus-visible {

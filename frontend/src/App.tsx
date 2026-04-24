@@ -1055,12 +1055,7 @@ function App() {
               />
             ) : null}
 
-            {status === 'idle' && !query.trim() ? (
-              <StatusPanel
-                title="Search for something"
-                body="Results appear as you type."
-              />
-            ) : null}
+
 
             {status === 'success' && results.length === 0 ? (
               <StatusPanel
