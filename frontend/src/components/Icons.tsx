@@ -115,10 +115,48 @@ export function PlayIcon({ className }: IconProps) {
   )
 }
 
+export function PreviousIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 5h2v14H6zM9 12l10 7V5z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function NextIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 5h2v14h-2zM5 5v14l10-7z" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function PauseIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
       <path d="M6 4h4v16H6zm8 0h4v16h-4z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function RepeatIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M17 2.8 21.2 7 17 11.2V8H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5h10V2.8ZM7 21.2 2.8 17 7 12.8V16h10a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v3.2Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+export function ShuffleIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M17 3h4v4h-2V6.4l-4.9 4.9-1.4-1.4L17.6 5H17V3ZM3 7h3.6c1.8 0 3.4.9 4.4 2.4l1.6 2.4A3.4 3.4 0 0 0 15.4 13H17v-1.6l4 3.6-4 3.6V17h-1.6a7.4 7.4 0 0 1-6.1-3.3L7.7 11.3A3.4 3.4 0 0 0 4.8 10H3V7Zm0 7h1.8c.9 0 1.8-.4 2.4-1l1.3 1.6A5.3 5.3 0 0 1 4.8 17H3v-3Zm12-7h2.6L15.9 8.7a5.3 5.3 0 0 1-2.7 1.5L12 8.4A3.4 3.4 0 0 0 15 7Z"
+        fill="currentColor"
+      />
     </svg>
   )
 }

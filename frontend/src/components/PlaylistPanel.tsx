@@ -3,7 +3,9 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   PencilIcon,
+  PlayIcon,
   PlusIcon,
+  ShuffleIcon,
   TrashIcon,
 } from './Icons'
 import { ModalDialog } from './ModalDialog'
@@ -22,6 +24,8 @@ type PlaylistPanelProps = {
   onDeletePlaylist: (playlistId: string) => void
   onRemoveItem: (playlistId: string, itemId: string) => void
   onMoveItem: (playlistId: string, itemId: string, direction: 'up' | 'down') => void
+  onPlayPlaylist: (playlist: Playlist, shuffle: boolean) => void
+  onPlayItem: (playlist: Playlist, itemId: string, shuffle: boolean) => void
 }
 
 export function PlaylistPanel({
@@ -37,12 +41,15 @@ export function PlaylistPanel({
   onDeletePlaylist,
   onRemoveItem,
   onMoveItem,
+  onPlayPlaylist,
+  onPlayItem,
 }: PlaylistPanelProps) {
   const [draftName, setDraftName] = useState('')
   const [renameTarget, setRenameTarget] = useState<Playlist | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Playlist | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [shuffleEnabled, setShuffleEnabled] = useState(false)
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
   const normalizedSearch = searchQuery.trim().toLowerCase()
@@ -220,10 +227,34 @@ export function PlaylistPanel({
           {activePlaylist ? (
             <>
               <div className="playlist-detail__header">
-                <h3>{activePlaylist.name}</h3>
-                {pendingVideoId ? (
-                  <span className="playlist-detail__status">Adding…</span>
-                ) : null}
+                <div>
+                  <h3>{activePlaylist.name}</h3>
+                  {pendingVideoId ? (
+                    <span className="playlist-detail__status">Adding...</span>
+                  ) : null}
+                </div>
+                <div className="playlist-detail__controls">
+                  <button
+                    type="button"
+                    className="playlist-detail__play-button"
+                    onClick={() => onPlayPlaylist(activePlaylist, shuffleEnabled)}
+                    disabled={activePlaylist.items.length === 0}
+                  >
+                    <PlayIcon className="action-icon action-icon--small" />
+                    <span>Play</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`playlist-detail__shuffle-toggle ${
+                      shuffleEnabled ? 'playlist-detail__shuffle-toggle--active' : ''
+                    }`}
+                    onClick={() => setShuffleEnabled((current) => !current)}
+                    aria-pressed={shuffleEnabled}
+                  >
+                    <ShuffleIcon className="action-icon action-icon--small" />
+                    <span>Shuffle</span>
+                  </button>
+                </div>
               </div>
 
               {activePlaylist.items.length === 0 ? (
@@ -253,6 +284,15 @@ export function PlaylistPanel({
                       </div>
 
                       <div className="playlist-track__actions">
+                        <button
+                          type="button"
+                          className="playlist-track__icon-button playlist-track__icon-button--play"
+                          onClick={() => onPlayItem(activePlaylist, item.id, shuffleEnabled)}
+                          title="Play track"
+                          aria-label="Play track"
+                        >
+                          <PlayIcon className="action-icon action-icon--small" />
+                        </button>
                         <a
                           className="playlist-track__link"
                           href={item.source_url}

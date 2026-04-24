@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+
 type ToastMessage = {
   id: number
   message: string
@@ -13,7 +15,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
     return null
   }
 
-  return (
+  return createPortal(
     <div className="toast-viewport" aria-live="polite" aria-atomic="false">
       {toasts.map((toast) => (
         <button
@@ -25,6 +27,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
           {toast.message}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }

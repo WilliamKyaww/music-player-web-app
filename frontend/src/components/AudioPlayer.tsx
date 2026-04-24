@@ -1,11 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
-import { PauseIcon, PlayIcon, VolumeIcon } from './Icons'
+import {
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+  PreviousIcon,
+  RepeatIcon,
+  ShuffleIcon,
+  VolumeIcon,
+} from './Icons'
+
+type LoopMode = 'off' | 'once' | 'all'
 
 type AudioPlayerProps = {
   videoId: string | null
   title: string | null
   thumbnailUrl: string | null
   streamUrl: string | null
+  isPlaylistPlayback: boolean
+  canGoPrevious: boolean
+  canGoNext: boolean
+  shuffleEnabled: boolean
+  loopMode: LoopMode
+  onPrevious: () => void
+  onNext: () => void
+  onToggleShuffle: () => void
+  onToggleLoop: () => void
+  onLoopOnceConsumed: () => void
+  onTrackEnded: () => void
   onClose: () => void
 }
 
@@ -14,6 +35,17 @@ export function AudioPlayer({
   title,
   thumbnailUrl,
   streamUrl,
+  isPlaylistPlayback,
+  canGoPrevious,
+  canGoNext,
+  shuffleEnabled,
+  loopMode,
+  onPrevious,
+  onNext,
+  onToggleShuffle,
+  onToggleLoop,
+  onLoopOnceConsumed,
+  onTrackEnded,
   onClose,
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -26,6 +58,8 @@ export function AudioPlayer({
     const audio = audioRef.current
     if (!audio || !streamUrl) return
 
+    setCurrentTime(0)
+    setDuration(0)
     audio.src = streamUrl
     audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
 
@@ -74,6 +108,23 @@ export function AudioPlayer({
   }
 
   function handleEnded() {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (loopMode === 'once' || loopMode === 'all') {
+      audio.currentTime = 0
+      audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
+      if (loopMode === 'once') {
+        onLoopOnceConsumed()
+      }
+      return
+    }
+
+    if (isPlaylistPlayback && canGoNext) {
+      onTrackEnded()
+      return
+    }
+
     setIsPlaying(false)
     setCurrentTime(0)
   }
@@ -105,18 +156,88 @@ export function AudioPlayer({
         )}
       </div>
 
-      <button
-        type="button"
-        className="audio-player__play-btn"
-        onClick={handlePlayPause}
-        aria-label={isPlaying ? 'Pause' : 'Play'}
-      >
-        {isPlaying ? (
-          <PauseIcon className="audio-player__icon" />
-        ) : (
-          <PlayIcon className="audio-player__icon" />
-        )}
-      </button>
+      <div className="audio-player__controls">
+        {isPlaylistPlayback ? (
+          <button
+            type="button"
+            className={`audio-player__control-button ${
+              shuffleEnabled ? 'audio-player__control-button--active' : ''
+            }`}
+            onClick={onToggleShuffle}
+            aria-pressed={shuffleEnabled}
+            aria-label="Shuffle playlist"
+            title="Shuffle playlist"
+          >
+            <ShuffleIcon className="audio-player__control-icon" />
+          </button>
+        ) : null}
+
+        {isPlaylistPlayback ? (
+          <button
+            type="button"
+            className="audio-player__control-button"
+            onClick={onPrevious}
+            disabled={!canGoPrevious}
+            aria-label="Previous track"
+            title="Previous track"
+          >
+            <PreviousIcon className="audio-player__control-icon" />
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          className="audio-player__play-btn"
+          onClick={handlePlayPause}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? (
+            <PauseIcon className="audio-player__icon" />
+          ) : (
+            <PlayIcon className="audio-player__icon" />
+          )}
+        </button>
+
+        {isPlaylistPlayback ? (
+          <button
+            type="button"
+            className="audio-player__control-button"
+            onClick={onNext}
+            disabled={!canGoNext}
+            aria-label="Next track"
+            title="Next track"
+          >
+            <NextIcon className="audio-player__control-icon" />
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          className={`audio-player__control-button ${
+            loopMode !== 'off' ? 'audio-player__control-button--active' : ''
+          }`}
+          onClick={onToggleLoop}
+          aria-pressed={loopMode !== 'off'}
+          aria-label={
+            loopMode === 'off'
+              ? 'Loop off'
+              : loopMode === 'once'
+                ? 'Loop once'
+                : 'Loop indefinitely'
+          }
+          title={
+            loopMode === 'off'
+              ? 'Loop off'
+              : loopMode === 'once'
+                ? 'Loop once'
+                : 'Loop indefinitely'
+          }
+        >
+          <RepeatIcon className="audio-player__control-icon" />
+          {loopMode === 'once' ? <span className="audio-player__loop-badge">1</span> : null}
+          {loopMode === 'all' ? <span className="audio-player__loop-badge">all</span> : null}
+        </button>
+      </div>
 
       <div className="audio-player__info">
         <p className="audio-player__title">{title || 'Unknown'}</p>

@@ -39,6 +39,7 @@ import type {
   Playlist,
   PlaylistExportFormat,
   PlaylistExportJob,
+  PlaylistItem,
   SpotifyPlaylistPreview,
   VideoSearchResult,
 } from './types'
@@ -46,6 +47,19 @@ import './App.css'
 
 type PageId = 'video' | 'songs' | 'playlists' | 'playlist'
 type ToastMessage = { id: number; message: string }
+type LoopMode = 'off' | 'once' | 'all'
+type PlayerTrack = {
+  videoId: string
+  title: string
+  thumbnailUrl: string | null
+}
+type PlayerSession = {
+  source: 'single' | 'playlist'
+  playlistId: string | null
+  tracks: PlayerTrack[]
+  index: number
+  shuffle: boolean
+}
 
 function getInitialTheme(): 'light' | 'dark' {
   try {
@@ -60,11 +74,8 @@ function getInitialTheme(): 'light' | 'dark' {
 function App() {
   const [activePage, setActivePage] = useState<PageId>('video')
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme)
-  const [nowPlaying, setNowPlaying] = useState<{
-    videoId: string
-    title: string
-    thumbnailUrl: string | null
-  } | null>(null)
+  const [playerSession, setPlayerSession] = useState<PlayerSession | null>(null)
+  const [loopMode, setLoopMode] = useState<LoopMode>('off')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<VideoSearchResult[]>([])
@@ -114,6 +125,29 @@ function App() {
 
   function dismissToast(id: number) {
     setToasts((current) => current.filter((toast) => toast.id !== id))
+  }
+
+  function toPlayerTrack(item: PlaylistItem): PlayerTrack {
+    return {
+      videoId: item.video_id,
+      title: item.title,
+      thumbnailUrl: item.thumbnail_url,
+    }
+  }
+
+  function getOrderedPlaylistTracks(playlist: Playlist) {
+    return [...playlist.items]
+      .sort((left, right) => left.position - right.position)
+      .map(toPlayerTrack)
+  }
+
+  function shuffleTracks(tracks: PlayerTrack[]) {
+    const shuffled = [...tracks]
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1))
+      ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+    }
+    return shuffled
   }
 
   const runSearch = useEffectEvent(async (nextQuery: string, signal: AbortSignal) => {
@@ -702,15 +736,166 @@ function App() {
   }
 
   function handlePlayVideo(videoId: string, title: string, thumbnailUrl: string | null = null) {
-    setNowPlaying({ videoId, title, thumbnailUrl })
+    setPlayerSession({
+      source: 'single',
+      playlistId: null,
+      tracks: [{ videoId, title, thumbnailUrl }],
+      index: 0,
+      shuffle: false,
+    })
   }
 
   function handlePlayDownload(job: DownloadJob) {
     handlePlayVideo(job.video_id, job.title, job.thumbnail_path ?? job.thumbnail_url)
   }
 
+  function handlePlayPlaylist(playlist: Playlist, shuffle: boolean) {
+    const tracks = getOrderedPlaylistTracks(playlist)
+    if (tracks.length === 0) {
+      return
+    }
+
+    setPlayerSession({
+      source: 'playlist',
+      playlistId: playlist.id,
+      tracks: shuffle ? shuffleTracks(tracks) : tracks,
+      index: 0,
+      shuffle,
+    })
+  }
+
+  function handlePlayPlaylistItem(playlist: Playlist, itemId: string, shuffle: boolean) {
+    const tracks = getOrderedPlaylistTracks(playlist)
+    const item = playlist.items.find((entry) => entry.id === itemId)
+    if (!item || tracks.length === 0) {
+      return
+    }
+
+    const targetTrack = toPlayerTrack(item)
+    if (shuffle) {
+      const remainingTracks = shuffleTracks(
+        tracks.filter((track) => track.videoId !== targetTrack.videoId),
+      )
+      setPlayerSession({
+        source: 'playlist',
+        playlistId: playlist.id,
+        tracks: [targetTrack, ...remainingTracks],
+        index: 0,
+        shuffle: true,
+      })
+      return
+    }
+
+    setPlayerSession({
+      source: 'playlist',
+      playlistId: playlist.id,
+      tracks,
+      index: Math.max(0, tracks.findIndex((track) => track.videoId === targetTrack.videoId)),
+      shuffle: false,
+    })
+  }
+
+  function handlePreviousTrack() {
+    setPlayerSession((current) => {
+      if (!current || current.source !== 'playlist') {
+        return current
+      }
+
+      return {
+        ...current,
+        index: Math.max(0, current.index - 1),
+      }
+    })
+  }
+
+  function handleNextTrack() {
+    setPlayerSession((current) => {
+      if (!current || current.source !== 'playlist') {
+        return current
+      }
+
+      return {
+        ...current,
+        index: Math.min(current.tracks.length - 1, current.index + 1),
+      }
+    })
+  }
+
+  function handleTrackEnded() {
+    setPlayerSession((current) => {
+      if (!current || current.source !== 'playlist') {
+        return current
+      }
+
+      if (current.index >= current.tracks.length - 1) {
+        return current
+      }
+
+      return {
+        ...current,
+        index: current.index + 1,
+      }
+    })
+  }
+
+  function handleTogglePlayerShuffle() {
+    setPlayerSession((current) => {
+      if (!current || current.source !== 'playlist') {
+        return current
+      }
+
+      const currentTrack = current.tracks[current.index]
+      const playlist = playlists.find((entry) => entry.id === current.playlistId)
+      if (!currentTrack || !playlist) {
+        return current
+      }
+
+      if (current.shuffle) {
+        const orderedTracks = getOrderedPlaylistTracks(playlist)
+        return {
+          ...current,
+          tracks: orderedTracks,
+          index: Math.max(
+            0,
+            orderedTracks.findIndex((track) => track.videoId === currentTrack.videoId),
+          ),
+          shuffle: false,
+        }
+      }
+
+      const orderedTracks = getOrderedPlaylistTracks(playlist)
+      const remainingTracks = shuffleTracks(
+        orderedTracks.filter((track) => track.videoId !== currentTrack.videoId),
+      )
+      return {
+        ...current,
+        tracks: [currentTrack, ...remainingTracks],
+        index: 0,
+        shuffle: true,
+      }
+    })
+  }
+
+  function handleToggleLoopMode() {
+    setLoopMode((current) => {
+      if (current === 'off') {
+        return 'once'
+      }
+      if (current === 'once') {
+        return 'all'
+      }
+      return 'off'
+    })
+  }
+
+  function handleConsumeLoopOnce() {
+    setLoopMode('off')
+  }
+
   const activePlaylist =
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
+  const currentTrack = playerSession?.tracks[playerSession.index] ?? null
+  const isPlaylistPlayback = playerSession?.source === 'playlist'
 
   return (
     <div className="app-shell">
@@ -865,6 +1050,8 @@ function App() {
               onDeletePlaylist={handleDeletePlaylist}
               onRemoveItem={handleRemovePlaylistItem}
               onMoveItem={handleMovePlaylistItem}
+              onPlayPlaylist={handlePlayPlaylist}
+              onPlayItem={handlePlayPlaylistItem}
             />
 
             <PlaylistExportPanel
@@ -903,11 +1090,24 @@ function App() {
 
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       <AudioPlayer
-        videoId={nowPlaying?.videoId ?? null}
-        title={nowPlaying?.title ?? null}
-        thumbnailUrl={nowPlaying?.thumbnailUrl ?? null}
-        streamUrl={nowPlaying ? getStreamUrl(nowPlaying.videoId) : null}
-        onClose={() => setNowPlaying(null)}
+        videoId={currentTrack?.videoId ?? null}
+        title={currentTrack?.title ?? null}
+        thumbnailUrl={currentTrack?.thumbnailUrl ?? null}
+        streamUrl={currentTrack ? getStreamUrl(currentTrack.videoId) : null}
+        isPlaylistPlayback={isPlaylistPlayback}
+        canGoPrevious={Boolean(playerSession && playerSession.index > 0)}
+        canGoNext={Boolean(
+          playerSession && playerSession.index < playerSession.tracks.length - 1,
+        )}
+        shuffleEnabled={Boolean(playerSession?.shuffle)}
+        loopMode={loopMode}
+        onPrevious={handlePreviousTrack}
+        onNext={handleNextTrack}
+        onToggleShuffle={handleTogglePlayerShuffle}
+        onToggleLoop={handleToggleLoopMode}
+        onLoopOnceConsumed={handleConsumeLoopOnce}
+        onTrackEnded={handleTrackEnded}
+        onClose={() => setPlayerSession(null)}
       />
     </div>
   )
