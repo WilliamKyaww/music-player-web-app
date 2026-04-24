@@ -2,20 +2,6 @@
 
 A personal, self-hosted music tool that searches YouTube, queues MP3 downloads locally, and grows into playlist management and local playback over time.
 
-## Current status
-
-Implemented so far:
-
-- YouTube search and result cards
-- Local MP3 download queue, progress tracking, conversion flow, and file delivery
-- Playlist management with persistent local playlists, playlist browsing, and multi-playlist add
-- Playlist ZIP export and combined-MP3 export with progress and saved-file delivery
-- Direct YouTube playlist export by URL
-
-Still coming:
-
-- Spotify playlist import (preview available, matching not yet implemented)
-- Recommendations
 
 ## Repo structure
 
@@ -81,15 +67,7 @@ http://localhost:5173
 ```
 
 ## Notes
-
 - `backend/.env` is gitignored and intended to stay local only.
 - Downloaded MP3 files under `backend/data/downloads/` are also gitignored.
-- The queue now supports removing failed entries and deleting completed MP3s directly from the app.
 - Playlists are persisted locally through a lightweight JSON registry.
-- Search results can now be added to one or more playlists in a single action.
-- Key playlist and queue actions now use icon-based controls for add, delete, move, and download actions.
-- Selected playlists now have stronger hover and active styling, and the full playlist card is clickable.
-- Playlist export can now build and save either a ZIP archive or one combined MP3 for the selected playlist.
-- Spotify import has an initial preview slice (collapsed by default in the UI) and requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `backend/.env`.
-- The UI was streamlined in April 2026 to remove verbose developer-facing copy, phase labels, and prototype-style helper text. The original Codex-generated UI is preserved on the `codex-original-ui` branch.
-- This repo is currently structured for local development and personal use, not public deployment.
+- **This repo is currently structured for local development and personal use, not public deployment.**
