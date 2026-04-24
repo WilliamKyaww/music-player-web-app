@@ -160,6 +160,22 @@ function App() {
     }
   }
 
+  function downloadJobToVideoSearchResult(job: DownloadJob): VideoSearchResult {
+    return {
+      id: job.video_id,
+      title: job.title,
+      channel_title: job.channel_title,
+      channel_id: '',
+      description: '',
+      thumbnail_url:
+        job.thumbnail_url || `https://i.ytimg.com/vi/${job.video_id}/hqdefault.jpg`,
+      duration_iso: '',
+      duration_label: '',
+      published_at: '',
+      video_url: job.source_url || `https://www.youtube.com/watch?v=${job.video_id}`,
+    }
+  }
+
   function getOrderedPlaylistTracks(playlist: Playlist) {
     return [...playlist.items]
       .sort((left, right) => left.position - right.position)
@@ -318,6 +334,13 @@ function App() {
         current.filter((id) => id !== job.id),
       )
     }
+  }
+
+  async function handleAddDownloadToPlaylists(
+    job: DownloadJob,
+    playlistIds: string[],
+  ) {
+    await handleAddToPlaylists(downloadJobToVideoSearchResult(job), playlistIds)
   }
 
   const loadPlaylists = useEffectEvent(async (signal?: AbortSignal) => {
@@ -1090,8 +1113,12 @@ function App() {
             errorMessage={downloadsErrorMessage}
             pendingRemovalIds={pendingDownloadRemovalIds}
             pendingRenameIds={pendingDownloadRenameIds}
+            pendingPlaylistVideoId={pendingPlaylistVideoId}
+            playlists={playlists}
+            activePlaylistId={activePlaylist?.id ?? null}
             onRemoveJob={handleRemoveDownload}
             onRenameJob={handleRenameDownload}
+            onAddToPlaylists={handleAddDownloadToPlaylists}
             onPlay={handlePlayDownload}
           />
         ) : null}

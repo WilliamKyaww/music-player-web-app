@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { DownloadIcon, PencilIcon, PlayIcon, TrashIcon } from './Icons'
 import { ModalDialog } from './ModalDialog'
+import { PlaylistPicker } from './PlaylistPicker'
 import { getDownloadFileHref, getDownloadThumbnailHref } from '../api/downloads'
-import type { DownloadJob, DownloadRuntimeStatus } from '../types'
+import type { DownloadJob, DownloadRuntimeStatus, Playlist } from '../types'
 
 type DownloadQueuePanelProps = {
   runtime: DownloadRuntimeStatus | null
@@ -10,8 +11,12 @@ type DownloadQueuePanelProps = {
   errorMessage: string | null
   pendingRemovalIds: string[]
   pendingRenameIds: string[]
+  pendingPlaylistVideoId: string | null
+  playlists: Playlist[]
+  activePlaylistId: string | null
   onRemoveJob: (job: DownloadJob, deleteFile: boolean) => void
   onRenameJob: (job: DownloadJob, title: string) => void
+  onAddToPlaylists: (job: DownloadJob, playlistIds: string[]) => void
   onPlay?: (job: DownloadJob) => void
 }
 
@@ -42,8 +47,12 @@ export function DownloadQueuePanel({
   errorMessage,
   pendingRemovalIds,
   pendingRenameIds,
+  pendingPlaylistVideoId,
+  playlists,
+  activePlaylistId,
   onRemoveJob,
   onRenameJob,
+  onAddToPlaylists,
   onPlay,
 }: DownloadQueuePanelProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
@@ -195,6 +204,17 @@ export function DownloadQueuePanel({
                         >
                           <PlayIcon className="action-icon" />
                         </button>
+                      ) : null}
+
+                      {job.status === 'completed' ? (
+                        <PlaylistPicker
+                          playlists={playlists}
+                          activePlaylistId={activePlaylistId}
+                          isSubmitting={pendingPlaylistVideoId === job.video_id}
+                          buttonClassName="download-job__icon-button download-job__icon-button--playlist"
+                          title="Add saved song to playlist"
+                          onSubmit={(playlistIds) => onAddToPlaylists(job, playlistIds)}
+                        />
                       ) : null}
 
                       {job.status !== 'downloading' && job.status !== 'queued' && job.status !== 'converting' ? (
