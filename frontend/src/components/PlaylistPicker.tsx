@@ -6,6 +6,8 @@ type PlaylistPickerProps = {
   playlists: Playlist[]
   activePlaylistId: string | null
   isSubmitting: boolean
+  buttonClassName?: string
+  title?: string
   onSubmit: (playlistIds: string[]) => void
 }
 
@@ -13,6 +15,8 @@ export function PlaylistPicker({
   playlists,
   activePlaylistId,
   isSubmitting,
+  buttonClassName = 'video-card__icon-button',
+  title = 'Add to one or more playlists',
   onSubmit,
 }: PlaylistPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -57,10 +61,10 @@ export function PlaylistPicker({
   return (
     <div className="playlist-picker">
       <button
-        className="video-card__icon-button"
+        className={buttonClassName}
         type="button"
-        aria-label="Add to one or more playlists"
-        title="Add to one or more playlists"
+        aria-label={title}
+        title={title}
         disabled={isSubmitting || playlists.length === 0}
         onClick={handleTogglePicker}
       >

@@ -6,9 +6,9 @@
   border-radius: 32px;
   overflow: clip;
   background:
-    radial-gradient(circle at top right, rgba(192, 92, 36, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(43, 0, 87, 0.16), transparent 28%),
     radial-gradient(circle at bottom left, rgba(12, 97, 101, 0.1), transparent 32%),
-    rgba(255, 250, 243, 0.88);
+    rgba(251, 248, 255, 0.9);
   box-shadow: 0 30px 60px rgba(20, 25, 32, 0.08);
   backdrop-filter: blur(20px);
   padding-bottom: 0;
@@ -16,7 +16,7 @@
 
 [data-theme='dark'] .app-shell {
   background:
-    radial-gradient(circle at top right, rgba(232, 128, 64, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(183, 140, 255, 0.1), transparent 28%),
     radial-gradient(circle at bottom left, rgba(20, 140, 140, 0.06), transparent 32%),
     rgba(22, 24, 32, 0.92);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
@@ -36,7 +36,7 @@
   block-size: 180px;
   top: -40px;
   right: 8%;
-  background: rgba(196, 92, 36, 0.16);
+  background: rgba(43, 0, 87, 0.16);
 }
 
 .app-shell::after {
@@ -107,8 +107,8 @@
   gap: 6px;
   padding: 5px 11px;
   border-radius: 999px;
-  background: rgba(232, 128, 64, 0.18);
-  color: #f0a060;
+  background: rgba(183, 140, 255, 0.18);
+  color: #d7c0ff;
   font-size: 0.78rem;
   font-weight: 700;
   animation: pulseDots 1.5s ease-in-out infinite;
@@ -213,8 +213,7 @@
   color: var(--text-muted);
 }
 
-.status-panel p,
-.video-card__description {
+.status-panel p {
   color: var(--text-muted);
 }
 
@@ -332,7 +331,7 @@
 .downloads-runtime--warning {
   margin-bottom: 14px;
   background: rgba(255, 244, 226, 0.84);
-  border-color: rgba(180, 81, 28, 0.16);
+  border-color: rgba(43, 0, 87, 0.16);
 }
 
 .downloads-runtime--error {
@@ -435,7 +434,7 @@
   border-radius: 18px;
   border: 1px solid var(--surface-border);
   background:
-    linear-gradient(135deg, rgba(196, 92, 36, 0.12), transparent 56%),
+    linear-gradient(135deg, rgba(43, 0, 87, 0.12), transparent 56%),
     var(--card-bg);
 }
 
@@ -525,7 +524,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(180, 81, 28, 0.14), rgba(22, 122, 91, 0.12));
+  background: linear-gradient(135deg, rgba(43, 0, 87, 0.14), rgba(22, 122, 91, 0.12));
   color: var(--accent);
   font-family: var(--heading);
   font-weight: 800;
@@ -549,22 +548,22 @@
 }
 
 .playlist-card--active {
-  border-color: rgba(180, 81, 28, 0.42);
-  background: rgba(255, 247, 236, 0.96);
+  border-color: rgba(43, 0, 87, 0.42);
+  background: rgba(247, 241, 255, 0.96);
   box-shadow:
-    inset 0 0 0 2px rgba(180, 81, 28, 0.16),
-    0 12px 24px rgba(196, 92, 36, 0.12);
+    inset 0 0 0 2px rgba(43, 0, 87, 0.16),
+    0 12px 24px rgba(43, 0, 87, 0.12);
   transform: translateY(-1px);
 }
 
 .playlist-card:hover {
-  border-color: rgba(180, 81, 28, 0.24);
-  background: rgba(255, 248, 239, 0.9);
+  border-color: rgba(43, 0, 87, 0.24);
+  background: rgba(248, 243, 255, 0.9);
   box-shadow: 0 10px 20px rgba(20, 25, 32, 0.08);
 }
 
 .playlist-card:focus-visible {
-  outline: 2px solid rgba(180, 81, 28, 0.45);
+  outline: 2px solid rgba(43, 0, 87, 0.45);
   outline-offset: 2px;
 }
 
@@ -692,7 +691,7 @@
 }
 
 .playlist-detail__play-button {
-  background: linear-gradient(135deg, #c45c24, #9d4418);
+  background: linear-gradient(135deg, #2b0057, #4b008f);
   border-color: transparent;
   color: #fff;
 }
@@ -715,7 +714,7 @@
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(180, 81, 28, 0.12);
+  background: rgba(43, 0, 87, 0.12);
   color: var(--accent);
   font-weight: 700;
 }
@@ -726,6 +725,12 @@
   gap: 12px;
   align-items: start;
   padding: 14px;
+}
+
+.playlist-track--playing {
+  border-color: rgba(43, 0, 87, 0.42);
+  background: rgba(247, 241, 255, 0.96);
+  box-shadow: inset 0 0 0 2px rgba(43, 0, 87, 0.14);
 }
 
 .playlist-track__cover,
@@ -748,9 +753,14 @@
   min-width: 32px;
   min-height: 32px;
   border-radius: 999px;
-  background: rgba(180, 81, 28, 0.12);
+  background: rgba(43, 0, 87, 0.12);
   color: var(--accent);
   font-weight: 700;
+}
+
+.playlist-track--playing .playlist-track__position {
+  background: var(--accent);
+  color: #fff;
 }
 
 .playlist-track h4 {
@@ -789,8 +799,8 @@
 }
 
 .playlist-track__icon-button--play:hover {
-  background: rgba(192, 92, 36, 0.22);
-  border-color: rgba(192, 92, 36, 0.3);
+  background: rgba(43, 0, 87, 0.22);
+  border-color: rgba(43, 0, 87, 0.3);
   color: var(--accent-strong);
 }
 
@@ -872,7 +882,7 @@
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(180, 81, 28, 0.12);
+  background: rgba(43, 0, 87, 0.12);
   color: var(--accent);
   font-size: 0.84rem;
   font-weight: 700;
@@ -899,7 +909,7 @@
 .download-job__bar {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(135deg, #c45c24, #9d4418);
+  background: linear-gradient(135deg, #2b0057, #4b008f);
   transition: width 180ms ease;
 }
 
@@ -946,8 +956,8 @@
 }
 
 .video-card__icon-button--play:hover {
-  background: rgba(192, 92, 36, 0.22);
-  border-color: rgba(192, 92, 36, 0.3);
+  background: rgba(43, 0, 87, 0.22);
+  border-color: rgba(43, 0, 87, 0.3);
   color: var(--accent-strong);
 }
 
@@ -1030,16 +1040,6 @@
   color: var(--text-strong);
 }
 
-.video-card__description {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-
 .video-card__actions {
   margin-top: auto;
   display: grid;
@@ -1073,7 +1073,7 @@
 
 .video-card__button--primary {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, #c45c24, #9d4418);
+  background: linear-gradient(135deg, #2b0057, #4b008f);
   color: #fff;
   border-color: transparent;
 }
@@ -1170,7 +1170,7 @@
 }
 
 .playlist-picker__button--primary {
-  background: linear-gradient(135deg, #c45c24, #9d4418);
+  background: linear-gradient(135deg, #2b0057, #4b008f);
   color: #fff;
   border-color: transparent;
 }
@@ -1701,7 +1701,7 @@
   }
 }
 
-/* ── Audio Player Bar ── */
+/* Audio Player Bar */
 
 .audio-player {
   position: fixed;
@@ -1735,7 +1735,7 @@
   justify-content: center;
   min-width: 76px;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(232, 128, 64, 0.28), rgba(80, 212, 168, 0.18));
+  background: linear-gradient(135deg, rgba(183, 140, 255, 0.28), rgba(80, 212, 168, 0.18));
   color: #fff;
   font-family: var(--heading);
   font-size: 1.6rem;
@@ -1780,9 +1780,9 @@
 }
 
 .audio-player__control-button--active {
-  background: rgba(232, 128, 64, 0.2);
-  border-color: rgba(232, 128, 64, 0.3);
-  color: #f0a060;
+  background: rgba(183, 140, 255, 0.2);
+  border-color: rgba(183, 140, 255, 0.3);
+  color: #d7c0ff;
 }
 
 .audio-player__control-icon {
@@ -1798,7 +1798,7 @@
   height: 13px;
   padding: 0 3px;
   border-radius: 999px;
-  background: #f0a060;
+  background: #d7c0ff;
   color: #1e2028;
   font-size: 0.52rem;
   font-weight: 900;
@@ -1864,7 +1864,7 @@
   height: 8px;
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(90deg, rgba(232, 128, 64, 0.75), rgba(255, 255, 255, 0.15));
+  background: linear-gradient(90deg, rgba(183, 140, 255, 0.78), rgba(255, 255, 255, 0.15));
   border-radius: 999px;
   outline: none;
   cursor: pointer;
@@ -1927,6 +1927,36 @@
   background: rgba(255, 255, 255, 0.7);
   border: none;
   cursor: pointer;
+}
+
+.audio-player__add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.audio-player__add-button:hover {
+  background: rgba(183, 140, 255, 0.2);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.audio-player__add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
 }
 
 .audio-player__close {

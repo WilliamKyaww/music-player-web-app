@@ -26,6 +26,8 @@ type PlaylistPanelProps = {
   onMoveItem: (playlistId: string, itemId: string, direction: 'up' | 'down') => void
   onPlayPlaylist: (playlist: Playlist, shuffle: boolean) => void
   onPlayItem: (playlist: Playlist, itemId: string, shuffle: boolean) => void
+  playingPlaylistId: string | null
+  playingVideoId: string | null
 }
 
 export function PlaylistPanel({
@@ -43,6 +45,8 @@ export function PlaylistPanel({
   onMoveItem,
   onPlayPlaylist,
   onPlayItem,
+  playingPlaylistId,
+  playingVideoId,
 }: PlaylistPanelProps) {
   const [draftName, setDraftName] = useState('')
   const [renameTarget, setRenameTarget] = useState<Playlist | null>(null)
@@ -264,7 +268,15 @@ export function PlaylistPanel({
               ) : (
                 <div className="playlist-track-list">
                   {activePlaylist.items.map((item, index) => (
-                    <article className="playlist-track" key={item.id}>
+                    <article
+                      className={`playlist-track ${
+                        playingPlaylistId === activePlaylist.id &&
+                        playingVideoId === item.video_id
+                          ? 'playlist-track--playing'
+                          : ''
+                      }`}
+                      key={item.id}
+                    >
                       <div className="playlist-track__cover" aria-hidden="true">
                         {item.thumbnail_url ? (
                           <img src={item.thumbnail_url} alt="" loading="lazy" />

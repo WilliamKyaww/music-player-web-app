@@ -18,7 +18,6 @@ import {
   renamePlaylist,
   reorderPlaylistItems,
 } from './api/playlists'
-import { previewSpotifyPlaylist } from './api/spotify'
 import { searchVideos } from './api/search'
 import { getStreamUrl } from './api/streaming'
 import { createYouTubePlaylistExport } from './api/youtubePlaylists'
@@ -28,7 +27,6 @@ import { VideoIcon, ListIcon, SunIcon, MoonIcon, MusicNoteIcon } from './compone
 import { PlaylistExportPanel } from './components/PlaylistExportPanel'
 import { PlaylistPanel } from './components/PlaylistPanel'
 import { SearchBar } from './components/SearchBar'
-import { SpotifyImportPanel } from './components/SpotifyImportPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { ToastViewport } from './components/ToastViewport'
 import { VideoCard } from './components/VideoCard'
@@ -40,7 +38,6 @@ import type {
   PlaylistExportFormat,
   PlaylistExportJob,
   PlaylistItem,
-  SpotifyPlaylistPreview,
   VideoSearchResult,
 } from './types'
 import './App.css'
@@ -52,6 +49,9 @@ type PlayerTrack = {
   videoId: string
   title: string
   thumbnailUrl: string | null
+  channelTitle: string
+  sourceUrl: string
+  durationLabel: string | null
 }
 type PlayerSession = {
   source: 'single' | 'playlist'
@@ -103,11 +103,6 @@ function App() {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false)
   const [isMutatingPlaylist, setIsMutatingPlaylist] = useState(false)
   const [isCreatingExport, setIsCreatingExport] = useState(false)
-  const [spotifyPreview, setSpotifyPreview] = useState<SpotifyPlaylistPreview | null>(null)
-  const [spotifyPreviewErrorMessage, setSpotifyPreviewErrorMessage] = useState<string | null>(
-    null,
-  )
-  const [isLoadingSpotifyPreview, setIsLoadingSpotifyPreview] = useState(false)
   const [isCreatingYouTubePlaylistExport, setIsCreatingYouTubePlaylistExport] =
     useState(false)
   const [pendingPlaylistVideoId, setPendingPlaylistVideoId] = useState<string | null>(
@@ -132,6 +127,33 @@ function App() {
       videoId: item.video_id,
       title: item.title,
       thumbnailUrl: item.thumbnail_url,
+      channelTitle: item.channel_title,
+      sourceUrl: item.source_url,
+      durationLabel: item.duration_label,
+    }
+  }
+
+  function getPlaylistSafeThumbnailUrl(track: PlayerTrack): string {
+    const thumbnailUrl = track.thumbnailUrl?.trim()
+    if (thumbnailUrl && /^https?:\/\//i.test(thumbnailUrl)) {
+      return thumbnailUrl
+    }
+
+    return `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
+  }
+
+  function toVideoSearchResult(track: PlayerTrack): VideoSearchResult {
+    return {
+      id: track.videoId,
+      title: track.title,
+      channel_title: track.channelTitle,
+      channel_id: '',
+      description: '',
+      thumbnail_url: getPlaylistSafeThumbnailUrl(track),
+      duration_iso: '',
+      duration_label: track.durationLabel ?? '',
+      published_at: '',
+      video_url: track.sourceUrl || `https://www.youtube.com/watch?v=${track.videoId}`,
     }
   }
 
@@ -602,26 +624,6 @@ function App() {
       }
   }
 
-  async function handleSpotifyPreview(playlistUrl: string) {
-    setIsLoadingSpotifyPreview(true)
-    try {
-      const preview = await previewSpotifyPlaylist(playlistUrl)
-      startTransition(() => {
-        setSpotifyPreview(preview)
-        setSpotifyPreviewErrorMessage(null)
-      })
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Could not preview the Spotify playlist.'
-
-      startTransition(() => {
-        setSpotifyPreviewErrorMessage(message)
-      })
-    } finally {
-      setIsLoadingSpotifyPreview(false)
-    }
-  }
-
   function handleQueryChange(nextQuery: string) {
     setQuery(nextQuery)
 
@@ -735,18 +737,31 @@ function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
   }
 
-  function handlePlayVideo(videoId: string, title: string, thumbnailUrl: string | null = null) {
+  function handlePlayVideo(
+    videoId: string,
+    title: string,
+    thumbnailUrl: string | null = null,
+    channelTitle = '',
+    sourceUrl = `https://www.youtube.com/watch?v=${videoId}`,
+    durationLabel: string | null = null,
+  ) {
     setPlayerSession({
       source: 'single',
       playlistId: null,
-      tracks: [{ videoId, title, thumbnailUrl }],
+      tracks: [{ videoId, title, thumbnailUrl, channelTitle, sourceUrl, durationLabel }],
       index: 0,
       shuffle: false,
     })
   }
 
   function handlePlayDownload(job: DownloadJob) {
-    handlePlayVideo(job.video_id, job.title, job.thumbnail_path ?? job.thumbnail_url)
+    handlePlayVideo(
+      job.video_id,
+      job.title,
+      job.thumbnail_path ?? job.thumbnail_url,
+      job.channel_title,
+      job.source_url,
+    )
   }
 
   function handlePlayPlaylist(playlist: Playlist, shuffle: boolean) {
@@ -896,6 +911,14 @@ function App() {
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
   const currentTrack = playerSession?.tracks[playerSession.index] ?? null
   const isPlaylistPlayback = playerSession?.source === 'playlist'
+
+  async function handleAddCurrentTrackToPlaylists(playlistIds: string[]) {
+    if (!currentTrack) {
+      return
+    }
+
+    await handleAddToPlaylists(toVideoSearchResult(currentTrack), playlistIds)
+  }
 
   return (
     <div className="app-shell">
@@ -1052,6 +1075,10 @@ function App() {
               onMoveItem={handleMovePlaylistItem}
               onPlayPlaylist={handlePlayPlaylist}
               onPlayItem={handlePlayPlaylistItem}
+              playingPlaylistId={
+                playerSession?.source === 'playlist' ? playerSession.playlistId : null
+              }
+              playingVideoId={currentTrack?.videoId ?? null}
             />
 
             <PlaylistExportPanel
@@ -1063,16 +1090,6 @@ function App() {
               onCreateExport={handleCreateExport}
               onRemoveExport={handleRemoveExport}
             />
-
-            <details className="collapsible-section">
-              <summary className="collapsible-section__toggle">Spotify Import (preview)</summary>
-              <SpotifyImportPanel
-                preview={spotifyPreview}
-                errorMessage={spotifyPreviewErrorMessage}
-                isLoading={isLoadingSpotifyPreview}
-                onPreview={handleSpotifyPreview}
-              />
-            </details>
           </>
         ) : null}
 
@@ -1101,12 +1118,16 @@ function App() {
         )}
         shuffleEnabled={Boolean(playerSession?.shuffle)}
         loopMode={loopMode}
+        playlists={playlists}
+        activePlaylistId={activePlaylist?.id ?? null}
+        isAddingToPlaylist={pendingPlaylistVideoId === currentTrack?.videoId}
         onPrevious={handlePreviousTrack}
         onNext={handleNextTrack}
         onToggleShuffle={handleTogglePlayerShuffle}
         onToggleLoop={handleToggleLoopMode}
         onLoopOnceConsumed={handleConsumeLoopOnce}
         onTrackEnded={handleTrackEnded}
+        onAddToPlaylists={handleAddCurrentTrackToPlaylists}
         onClose={() => setPlayerSession(null)}
       />
     </div>

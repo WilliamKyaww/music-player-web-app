@@ -6,7 +6,14 @@ type VideoCardProps = {
   video: VideoSearchResult
   onDownload: (video: VideoSearchResult) => void
   onAddToPlaylists: (video: VideoSearchResult, playlistIds: string[]) => void
-  onPlay?: (videoId: string, title: string, thumbnailUrl: string | null) => void
+  onPlay?: (
+    videoId: string,
+    title: string,
+    thumbnailUrl: string | null,
+    channelTitle: string,
+    sourceUrl: string,
+    durationLabel: string | null,
+  ) => void
   playlists: Playlist[]
   activePlaylistId: string | null
   isAddingToPlaylist: boolean
@@ -56,7 +63,6 @@ export function VideoCard({
         <h3 className="video-card__title" title={video.title}>
           {video.title}
         </h3>
-        <p className="video-card__description">{video.description || 'No description provided.'}</p>
       </div>
 
       <div className="video-card__actions">
@@ -74,7 +80,16 @@ export function VideoCard({
             type="button"
             title="Play audio"
             aria-label="Play audio"
-            onClick={() => onPlay(video.id, video.title, video.thumbnail_url)}
+            onClick={() =>
+              onPlay(
+                video.id,
+                video.title,
+                video.thumbnail_url,
+                video.channel_title,
+                video.video_url,
+                video.duration_label,
+              )
+            }
           >
             <PlayIcon className="action-icon" />
           </button>

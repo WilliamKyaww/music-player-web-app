@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   NextIcon,
   PauseIcon,
@@ -8,6 +9,8 @@ import {
   ShuffleIcon,
   VolumeIcon,
 } from './Icons'
+import { PlaylistPicker } from './PlaylistPicker'
+import type { Playlist } from '../types'
 
 type LoopMode = 'off' | 'once' | 'all'
 
@@ -21,12 +24,16 @@ type AudioPlayerProps = {
   canGoNext: boolean
   shuffleEnabled: boolean
   loopMode: LoopMode
+  playlists: Playlist[]
+  activePlaylistId: string | null
+  isAddingToPlaylist: boolean
   onPrevious: () => void
   onNext: () => void
   onToggleShuffle: () => void
   onToggleLoop: () => void
   onLoopOnceConsumed: () => void
   onTrackEnded: () => void
+  onAddToPlaylists: (playlistIds: string[]) => void
   onClose: () => void
 }
 
@@ -40,12 +47,16 @@ export function AudioPlayer({
   canGoNext,
   shuffleEnabled,
   loopMode,
+  playlists,
+  activePlaylistId,
+  isAddingToPlaylist,
   onPrevious,
   onNext,
   onToggleShuffle,
   onToggleLoop,
   onLoopOnceConsumed,
   onTrackEnded,
+  onAddToPlaylists,
   onClose,
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -138,7 +149,7 @@ export function AudioPlayer({
 
   if (!videoId || !streamUrl) return null
 
-  return (
+  return createPortal(
     <div className="audio-player">
       <audio
         ref={audioRef}
@@ -235,7 +246,7 @@ export function AudioPlayer({
         >
           <RepeatIcon className="audio-player__control-icon" />
           {loopMode === 'once' ? <span className="audio-player__loop-badge">1</span> : null}
-          {loopMode === 'all' ? <span className="audio-player__loop-badge">all</span> : null}
+          {loopMode === 'all' ? <span className="audio-player__loop-badge">∞</span> : null}
         </button>
       </div>
 
@@ -269,6 +280,15 @@ export function AudioPlayer({
         />
       </div>
 
+      <PlaylistPicker
+        playlists={playlists}
+        activePlaylistId={activePlaylistId}
+        isSubmitting={isAddingToPlaylist}
+        buttonClassName="audio-player__add-button"
+        title="Add playing song to playlist"
+        onSubmit={onAddToPlaylists}
+      />
+
       <button
         type="button"
         className="audio-player__close"
@@ -277,6 +297,7 @@ export function AudioPlayer({
       >
         x
       </button>
-    </div>
+    </div>,
+    document.body,
   )
 }
