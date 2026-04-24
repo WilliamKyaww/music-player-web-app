@@ -1,1 +1,1 @@
-# SpotiMy backend package.
+# MusicBox backend package.

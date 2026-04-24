@@ -8,7 +8,7 @@ settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    description="Phase 2 search and MP3 download API for the SpotiMy personal project.",
+    description="Search, MP3 download, playlist, and playback API for the MusicBox personal project.",
     version="0.2.0",
 )
 

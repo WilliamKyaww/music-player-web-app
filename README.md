@@ -1,6 +1,6 @@
-# Music Player Web App
+# MusicBox
 
-A personal, self-hosted music tool that searches YouTube, queues MP3 downloads locally, and grows into playlist management and local playback over time.
+MusicBox is a personal, self-hosted music tool that searches YouTube, queues MP3 downloads locally, and grows into playlist management and local playback over time.
 
 
 ## Repo structure

@@ -8,7 +8,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    app_name: str = "SpotiMy API"
+    app_name: str = "MusicBox API"
     frontend_origin: str = Field(
         default="http://localhost:5173",
         alias="FRONTEND_ORIGIN",
