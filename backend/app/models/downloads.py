@@ -13,6 +13,10 @@ class DownloadRequest(BaseModel):
     source_url: HttpUrl | None = None
 
 
+class UpdateDownloadRequest(BaseModel):
+    title: str
+
+
 class DownloadRuntimeStatus(BaseModel):
     available: bool
     missing_dependencies: list[str]

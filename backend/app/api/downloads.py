@@ -8,6 +8,7 @@ from app.models.downloads import (
     DownloadRequest,
     EnqueueDownloadResponse,
     RemoveDownloadResponse,
+    UpdateDownloadRequest,
 )
 from app.services.downloads import (
     DownloadRuntimeError,
@@ -40,6 +41,18 @@ async def create_download(request: DownloadRequest) -> EnqueueDownloadResponse:
         ) from exc
 
     return EnqueueDownloadResponse(job=job, deduplicated=deduplicated)
+
+
+@router.patch("/downloads/{job_id}", response_model=DownloadJob)
+async def update_download(job_id: str, request: UpdateDownloadRequest) -> DownloadJob:
+    manager = get_download_manager()
+
+    try:
+        return manager.update_job(job_id, request)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Download not found.") from exc
+    except DownloadRuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.delete("/downloads/{job_id}", response_model=RemoveDownloadResponse)

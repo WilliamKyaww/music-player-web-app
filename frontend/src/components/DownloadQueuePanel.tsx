@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { DownloadIcon, TrashIcon } from './Icons'
+import { DownloadIcon, PencilIcon, PlayIcon, TrashIcon } from './Icons'
+import { ModalDialog } from './ModalDialog'
 import { getDownloadFileHref, getDownloadThumbnailHref } from '../api/downloads'
 import type { DownloadJob, DownloadRuntimeStatus } from '../types'
 
@@ -8,7 +9,9 @@ type DownloadQueuePanelProps = {
   jobs: DownloadJob[]
   errorMessage: string | null
   pendingRemovalIds: string[]
+  pendingRenameIds: string[]
   onRemoveJob: (job: DownloadJob, deleteFile: boolean) => void
+  onRenameJob: (job: DownloadJob, title: string) => void
   onPlay?: (job: DownloadJob) => void
 }
 
@@ -38,11 +41,15 @@ export function DownloadQueuePanel({
   jobs,
   errorMessage,
   pendingRemovalIds,
+  pendingRenameIds,
   onRemoveJob,
+  onRenameJob,
   onPlay,
 }: DownloadQueuePanelProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const [searchQuery, setSearchQuery] = useState('')
+  const [renameTarget, setRenameTarget] = useState<DownloadJob | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredJobs = normalizedQuery
     ? jobs.filter((job) =>
@@ -58,6 +65,21 @@ export function DownloadQueuePanel({
   function handleSearchChange(value: string) {
     setSearchQuery(value)
     setVisibleCount(INITIAL_VISIBLE)
+  }
+
+  function openRenameModal(job: DownloadJob) {
+    setRenameTarget(job)
+    setRenameDraft(job.title)
+  }
+
+  function handleRenameConfirm() {
+    if (!renameTarget || !renameDraft.trim()) {
+      return
+    }
+
+    onRenameJob(renameTarget, renameDraft)
+    setRenameTarget(null)
+    setRenameDraft('')
   }
 
   return (
@@ -171,7 +193,20 @@ export function DownloadQueuePanel({
                           title="Play in app"
                           aria-label="Play in app"
                         >
-                          <PlayIconInline className="action-icon" />
+                          <PlayIcon className="action-icon" />
+                        </button>
+                      ) : null}
+
+                      {job.status !== 'downloading' && job.status !== 'queued' && job.status !== 'converting' ? (
+                        <button
+                          type="button"
+                          className="download-job__icon-button download-job__icon-button--edit"
+                          onClick={() => openRenameModal(job)}
+                          disabled={pendingRenameIds.includes(job.id)}
+                          title="Rename saved song"
+                          aria-label="Rename saved song"
+                        >
+                          <PencilIcon className="action-icon" />
                         </button>
                       ) : null}
 
@@ -243,17 +278,31 @@ export function DownloadQueuePanel({
           ) : null}
         </>
       )}
-    </section>
-  )
-}
 
-function PlayIconInline({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M8 5v14l11-7z"
-        fill="currentColor"
-      />
-    </svg>
+      {renameTarget ? (
+        <ModalDialog
+          title="Rename saved song"
+          description=""
+          confirmLabel="Save changes"
+          isBusy={pendingRenameIds.includes(renameTarget.id)}
+          onConfirm={handleRenameConfirm}
+          onCancel={() => {
+            if (pendingRenameIds.includes(renameTarget.id)) {
+              return
+            }
+            setRenameTarget(null)
+            setRenameDraft('')
+          }}
+        >
+          <input
+            className="modal-dialog__input"
+            type="text"
+            value={renameDraft}
+            onChange={(event) => setRenameDraft(event.target.value)}
+            autoFocus
+          />
+        </ModalDialog>
+      ) : null}
+    </section>
   )
 }

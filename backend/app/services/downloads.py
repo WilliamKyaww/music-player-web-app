@@ -10,7 +10,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import get_settings
-from app.models.downloads import DownloadJob, DownloadRequest, DownloadRuntimeStatus
+from app.models.downloads import (
+    DownloadJob,
+    DownloadRequest,
+    DownloadRuntimeStatus,
+    UpdateDownloadRequest,
+)
 
 import httpx
 
@@ -137,6 +142,43 @@ class DownloadManager:
             if job is None:
                 raise KeyError(job_id)
 
+            return job.to_public_model()
+
+    def update_job(self, job_id: str, request: UpdateDownloadRequest) -> DownloadJob:
+        normalized_title = self._normalize_title(request.title)
+
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            if job.status in ACTIVE_JOB_STATUSES:
+                raise DownloadRuntimeError(
+                    "Active downloads cannot be renamed yet. Wait for the job to finish."
+                )
+
+            if job.status == "completed" and job.file_path and job.file_path.exists():
+                target_path = job.file_path.with_name(
+                    f"{_sanitize_filename(f'{normalized_title} [{job.video_id}]')}.mp3"
+                )
+                if target_path != job.file_path:
+                    if target_path.exists():
+                        raise DownloadRuntimeError(
+                            "A file with that saved-song name already exists."
+                        )
+                    try:
+                        job.file_path.rename(target_path)
+                    except OSError as exc:
+                        raise DownloadRuntimeError(
+                            "Could not rename the saved MP3 file on disk."
+                        ) from exc
+
+                    job.file_path = target_path
+                    job.file_name = target_path.name
+
+            job.title = normalized_title
+            job.updated_at = _utc_now()
+            self._persist_registry_unlocked()
             return job.to_public_model()
 
     def get_file_path(self, job_id: str) -> Path:
@@ -478,6 +520,14 @@ class DownloadManager:
             return None
 
         return thumbnail_path
+
+    @staticmethod
+    def _normalize_title(title: str) -> str:
+        normalized = " ".join(title.split()).strip()
+        if not normalized:
+            raise DownloadRuntimeError("Saved song title cannot be empty.")
+
+        return normalized[:160]
 
     def _resolve_ffmpeg_binary(self) -> str | None:
         configured = self.settings.ffmpeg_binary.strip()

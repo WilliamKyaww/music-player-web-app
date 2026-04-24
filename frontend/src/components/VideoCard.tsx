@@ -1,4 +1,4 @@
-import { DownloadIcon, PlayIcon } from './Icons'
+import { DownloadIcon, PlayIcon, YouTubeIcon } from './Icons'
 import { PlaylistPicker } from './PlaylistPicker'
 import type { DownloadJob, Playlist, VideoSearchResult } from '../types'
 
@@ -66,58 +66,65 @@ export function VideoCard({
       </div>
 
       <div className="video-card__actions">
-        <a
-          className="video-card__button video-card__button--primary"
-          href={video.video_url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open on YouTube
-        </a>
-        {onPlay ? (
-          <button
-            className="video-card__icon-button video-card__icon-button--play"
-            type="button"
-            title="Play audio"
-            aria-label="Play audio"
-            onClick={() =>
-              onPlay(
-                video.id,
-                video.title,
-                video.thumbnail_url,
-                video.channel_title,
-                video.video_url,
-                video.duration_label,
-              )
-            }
+        <div className="video-card__action-cluster">
+          {onPlay ? (
+            <button
+              className="video-card__icon-button video-card__icon-button--play"
+              type="button"
+              title="Play audio"
+              aria-label="Play audio"
+              onClick={() =>
+                onPlay(
+                  video.id,
+                  video.title,
+                  video.thumbnail_url,
+                  video.channel_title,
+                  video.video_url,
+                  video.duration_label,
+                )
+              }
+            >
+              <PlayIcon className="action-icon" />
+            </button>
+          ) : null}
+          <a
+            className="video-card__icon-button video-card__icon-button--youtube"
+            href={video.video_url}
+            target="_blank"
+            rel="noreferrer"
+            title="Open on YouTube"
+            aria-label="Open on YouTube"
           >
-            <PlayIcon className="action-icon" />
+            <YouTubeIcon className="action-icon" />
+          </a>
+        </div>
+
+        <div className="video-card__action-cluster video-card__action-cluster--end">
+          <button
+            className={`video-card__icon-button ${latestDownload ? `video-card__icon-button--${latestDownload.status}` : ''}`}
+            type="button"
+            disabled={isDownloadBusy}
+            title={
+              latestDownload?.status === 'completed'
+                ? 'Use the queue panel to save the finished MP3.'
+                : 'Download MP3'
+            }
+            aria-label={
+              latestDownload?.status === 'completed'
+                ? 'MP3 already completed'
+                : 'Download MP3'
+            }
+            onClick={() => onDownload(video)}
+          >
+            <DownloadIcon className="action-icon" />
           </button>
-        ) : null}
-        <button
-          className={`video-card__icon-button ${latestDownload ? `video-card__icon-button--${latestDownload.status}` : ''}`}
-          type="button"
-          disabled={isDownloadBusy}
-          title={
-            latestDownload?.status === 'completed'
-              ? 'Use the queue panel to save the finished MP3.'
-              : 'Download MP3'
-          }
-          aria-label={
-            latestDownload?.status === 'completed'
-              ? 'MP3 already completed'
-              : 'Download MP3'
-          }
-          onClick={() => onDownload(video)}
-        >
-          <DownloadIcon className="action-icon" />
-        </button>
-        <PlaylistPicker
-          playlists={playlists}
-          activePlaylistId={activePlaylistId}
-          isSubmitting={isAddingToPlaylist}
-          onSubmit={(playlistIds) => onAddToPlaylists(video, playlistIds)}
-        />
+          <PlaylistPicker
+            playlists={playlists}
+            activePlaylistId={activePlaylistId}
+            isSubmitting={isAddingToPlaylist}
+            onSubmit={(playlistIds) => onAddToPlaylists(video, playlistIds)}
+          />
+        </div>
       </div>
 
     </article>

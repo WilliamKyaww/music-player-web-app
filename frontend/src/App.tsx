@@ -1,8 +1,10 @@
 import { startTransition, useEffect, useEffectEvent, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   enqueueDownload,
   fetchDownloads,
   removeDownload,
+  renameDownload,
 } from './api/downloads'
 import {
   createPlaylistExport,
@@ -93,6 +95,7 @@ function App() {
   )
   const [pendingDownloadVideoIds, setPendingDownloadVideoIds] = useState<string[]>([])
   const [pendingDownloadRemovalIds, setPendingDownloadRemovalIds] = useState<string[]>([])
+  const [pendingDownloadRenameIds, setPendingDownloadRenameIds] = useState<string[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [exportJobs, setExportJobs] = useState<PlaylistExportJob[]>([])
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
@@ -287,6 +290,34 @@ function App() {
           current.filter((id) => id !== job.id),
         )
       }
+  }
+
+  async function handleRenameDownload(job: DownloadJob, title: string) {
+    setPendingDownloadRenameIds((current) =>
+      current.includes(job.id) ? current : [...current, job.id],
+    )
+
+    try {
+      const updatedJob = await renameDownload(job.id, title)
+      startTransition(() => {
+        setDownloadJobs((current) =>
+          current.map((item) => (item.id === updatedJob.id ? updatedJob : item)),
+        )
+        setDownloadsErrorMessage(null)
+      })
+      pushToast(`Renamed saved song to "${updatedJob.title}".`)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not rename the saved song.'
+
+      startTransition(() => {
+        setDownloadsErrorMessage(message)
+      })
+    } finally {
+      setPendingDownloadRenameIds((current) =>
+        current.filter((id) => id !== job.id),
+      )
+    }
   }
 
   const loadPlaylists = useEffectEvent(async (signal?: AbortSignal) => {
@@ -920,58 +951,63 @@ function App() {
     await handleAddToPlaylists(toVideoSearchResult(currentTrack), playlistIds)
   }
 
+  const navigation = (
+    <nav className="app-nav">
+      <div className="app-nav__tabs">
+        <button
+          type="button"
+          className={`app-nav__tab ${activePage === 'video' ? 'app-nav__tab--active' : ''}`}
+          onClick={() => setActivePage('video')}
+        >
+          <VideoIcon className="app-nav__tab-icon" />
+          YouTube Video
+        </button>
+        <button
+          type="button"
+          className={`app-nav__tab ${activePage === 'songs' ? 'app-nav__tab--active' : ''}`}
+          onClick={() => setActivePage('songs')}
+        >
+          <MusicNoteIcon className="app-nav__tab-icon" />
+          Saved Songs
+        </button>
+        <button
+          type="button"
+          className={`app-nav__tab ${activePage === 'playlists' ? 'app-nav__tab--active' : ''}`}
+          onClick={() => setActivePage('playlists')}
+        >
+          <ListIcon className="app-nav__tab-icon" />
+          Saved Playlists
+        </button>
+        <button
+          type="button"
+          className={`app-nav__tab ${activePage === 'playlist' ? 'app-nav__tab--active' : ''}`}
+          onClick={() => setActivePage('playlist')}
+        >
+          <ListIcon className="app-nav__tab-icon" />
+          YouTube Playlist
+        </button>
+      </div>
+      <div className="app-nav__actions">
+        {hasActiveDownloads || hasActiveExports ? (
+          <span className="app-nav__status">Processing…</span>
+        ) : null}
+        <button
+          type="button"
+          className="app-nav__theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        >
+          {theme === 'light' ? <MoonIcon className="app-nav__theme-icon" /> : <SunIcon className="app-nav__theme-icon" />}
+        </button>
+      </div>
+    </nav>
+  )
+
   return (
-    <div className="app-shell">
-      <nav className="app-nav">
-        <div className="app-nav__tabs">
-          <button
-            type="button"
-            className={`app-nav__tab ${activePage === 'video' ? 'app-nav__tab--active' : ''}`}
-            onClick={() => setActivePage('video')}
-          >
-            <VideoIcon className="app-nav__tab-icon" />
-            YouTube Video
-          </button>
-          <button
-            type="button"
-            className={`app-nav__tab ${activePage === 'songs' ? 'app-nav__tab--active' : ''}`}
-            onClick={() => setActivePage('songs')}
-          >
-            <MusicNoteIcon className="app-nav__tab-icon" />
-            Saved Songs
-          </button>
-          <button
-            type="button"
-            className={`app-nav__tab ${activePage === 'playlists' ? 'app-nav__tab--active' : ''}`}
-            onClick={() => setActivePage('playlists')}
-          >
-            <ListIcon className="app-nav__tab-icon" />
-            Saved Playlists
-          </button>
-          <button
-            type="button"
-            className={`app-nav__tab ${activePage === 'playlist' ? 'app-nav__tab--active' : ''}`}
-            onClick={() => setActivePage('playlist')}
-          >
-            <ListIcon className="app-nav__tab-icon" />
-            YouTube Playlist
-          </button>
-        </div>
-        <div className="app-nav__actions">
-          {hasActiveDownloads || hasActiveExports ? (
-            <span className="app-nav__status">Processing…</span>
-          ) : null}
-          <button
-            type="button"
-            className="app-nav__theme-toggle"
-            onClick={toggleTheme}
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-          >
-            {theme === 'light' ? <MoonIcon className="app-nav__theme-icon" /> : <SunIcon className="app-nav__theme-icon" />}
-          </button>
-        </div>
-      </nav>
+    <>
+      {createPortal(navigation, document.body)}
+      <div className="app-shell">
 
       <main className="workspace">
         {activePage === 'video' ? (
@@ -1053,7 +1089,9 @@ function App() {
             jobs={downloadJobs}
             errorMessage={downloadsErrorMessage}
             pendingRemovalIds={pendingDownloadRemovalIds}
+            pendingRenameIds={pendingDownloadRenameIds}
             onRemoveJob={handleRemoveDownload}
+            onRenameJob={handleRenameDownload}
             onPlay={handlePlayDownload}
           />
         ) : null}
@@ -1130,7 +1168,8 @@ function App() {
         onAddToPlaylists={handleAddCurrentTrackToPlaylists}
         onClose={() => setPlayerSession(null)}
       />
-    </div>
+      </div>
+    </>
   )
 }
 

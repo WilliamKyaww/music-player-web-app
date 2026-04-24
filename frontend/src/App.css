@@ -1,7 +1,7 @@
 .app-shell {
   position: relative;
   width: min(1200px, calc(100% - 32px));
-  margin: 24px auto;
+  margin: 96px auto 24px;
   border: 1px solid var(--surface-border);
   border-radius: 32px;
   overflow: clip;
@@ -48,15 +48,23 @@
 }
 
 .app-nav {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 25;
+  width: min(1200px, calc(100% - 32px));
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 0 20px;
   background: #1e2028;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 32px 32px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
   min-height: 52px;
+  box-shadow: 0 18px 42px rgba(10, 13, 18, 0.24);
+  backdrop-filter: blur(18px);
 }
 
 .app-nav__tabs {
@@ -268,9 +276,9 @@
   margin-top: 14px;
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid rgba(36, 42, 58, 0.1);
-  background: rgba(246, 240, 232, 0.72);
-  color: var(--text-strong);
+  border: 1px solid rgba(43, 0, 87, 0.16);
+  background: rgba(43, 0, 87, 0.1);
+  color: var(--accent);
   font: inherit;
   font-weight: 700;
   font-size: 0.88rem;
@@ -293,11 +301,12 @@
 
 .downloads-panel__show-more--muted {
   background: transparent;
+  border-color: rgba(43, 0, 87, 0.16);
 }
 
 .downloads-panel__show-more:hover {
-  background: rgba(246, 240, 232, 0.95);
-  border-color: rgba(36, 42, 58, 0.2);
+  background: rgba(43, 0, 87, 0.18);
+  border-color: rgba(43, 0, 87, 0.32);
 }
 
 .downloads-panel__body {
@@ -889,8 +898,8 @@
 }
 
 .download-job__pill--completed {
-  background: rgba(24, 125, 95, 0.14);
-  color: #11624a;
+  background: rgba(43, 0, 87, 0.12);
+  color: var(--accent);
 }
 
 .download-job__pill--failed {
@@ -914,7 +923,7 @@
 }
 
 .download-job__bar--completed {
-  background: linear-gradient(135deg, #1f9b75, #167a5b);
+  background: linear-gradient(135deg, #2b0057, #4b008f);
 }
 
 .download-job__bar--failed {
@@ -933,14 +942,14 @@
 }
 
 .download-job__icon-button {
-  background: var(--success-bg);
-  color: var(--success-color);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .download-job__icon-button:not(.download-job__icon-button--danger):hover {
-  background: rgba(49, 106, 222, 0.14);
-  border-color: rgba(49, 106, 222, 0.24);
-  color: #2252b2;
+  background: rgba(43, 0, 87, 0.2);
+  border-color: rgba(43, 0, 87, 0.3);
+  color: var(--accent-strong);
 }
 
 .download-job__action-group {
@@ -1042,17 +1051,27 @@
 
 .video-card__actions {
   margin-top: auto;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
+  justify-content: space-between;
   gap: 10px;
   align-items: center;
   padding: 0 18px 12px;
 }
 
+.video-card__action-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-card__action-cluster--end {
+  justify-content: flex-end;
+}
+
 .video-card__icon-button:hover {
-  background: rgba(49, 106, 222, 0.12);
-  border-color: rgba(49, 106, 222, 0.24);
-  color: #2252b2;
+  background: rgba(43, 0, 87, 0.16);
+  border-color: rgba(43, 0, 87, 0.24);
+  color: var(--accent-strong);
 }
 
 .video-card__button {
@@ -1072,10 +1091,14 @@
 }
 
 .video-card__button--primary {
-  grid-column: 1 / -1;
   background: linear-gradient(135deg, #2b0057, #4b008f);
   color: #fff;
   border-color: transparent;
+}
+
+.video-card__icon-button--youtube {
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .video-card__icon-button--failed {
@@ -1627,7 +1650,7 @@
 @media (max-width: 640px) {
   .app-shell {
     width: min(100%, calc(100% - 16px));
-    margin: 8px auto;
+    margin: 104px auto 8px;
     border-radius: 24px;
   }
 
@@ -1667,11 +1690,13 @@
   }
 
   .video-card__actions {
-    grid-template-columns: 1fr auto auto;
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .video-card__button--primary {
-    grid-column: auto;
+  .video-card__action-cluster,
+  .video-card__action-cluster--end {
+    justify-content: space-between;
   }
 
   .playlist-picker__menu {
@@ -1692,8 +1717,11 @@
   }
 
   .app-nav {
+    top: 8px;
+    width: min(100%, calc(100% - 16px));
     align-items: flex-start;
     padding: 8px 12px;
+    border-radius: 20px;
   }
 
   .app-nav__tabs {

@@ -1,5 +1,6 @@
 import { apiFetchJson, getApiHref } from './client'
 import type {
+  DownloadJob,
   DownloadListResponse,
   EnqueueDownloadResponse,
   RemoveDownloadResponse,
@@ -33,6 +34,13 @@ export async function removeDownload(downloadId: string, deleteFile = true) {
       method: 'DELETE',
     },
   )
+}
+
+export async function renameDownload(downloadId: string, title: string) {
+  return apiFetchJson<DownloadJob>(`/api/downloads/${downloadId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
 }
 
 export function getDownloadFileHref(downloadId: string) {
