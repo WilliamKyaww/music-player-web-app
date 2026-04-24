@@ -10,6 +10,7 @@ import {
   VolumeIcon,
 } from './Icons'
 import { PlaylistPicker } from './PlaylistPicker'
+import type { CSSProperties } from 'react'
 import type { Playlist } from '../types'
 
 type LoopMode = 'off' | 'once' | 'all'
@@ -149,6 +150,9 @@ export function AudioPlayer({
 
   if (!videoId || !streamUrl) return null
 
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
+  const volumePercent = Math.min(100, Math.max(0, volume * 100))
+
   return createPortal(
     <div className="audio-player">
       <audio
@@ -261,6 +265,7 @@ export function AudioPlayer({
             max={duration || 0}
             step={0.5}
             value={currentTime}
+            style={{ '--audio-progress': `${progressPercent}%` } as CSSProperties}
             onChange={handleSeek}
           />
           <span className="audio-player__time">{formatTime(duration)}</span>
@@ -276,6 +281,7 @@ export function AudioPlayer({
           max={1}
           step={0.05}
           value={volume}
+          style={{ '--volume-progress': `${volumePercent}%` } as CSSProperties}
           onChange={(e) => setVolume(Number(e.target.value))}
         />
       </div>
