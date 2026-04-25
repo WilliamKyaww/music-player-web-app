@@ -41,8 +41,8 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
         "no_warnings": True,
     }
 
-    if settings.youtube_cookies_file:
-        options["cookiefile"] = settings.youtube_cookies_file
+    if settings.writable_cookies_file:
+        options["cookiefile"] = settings.writable_cookies_file
 
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(normalized_url, download=False)

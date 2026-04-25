@@ -48,6 +48,26 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
+    @property
+    def writable_cookies_file(self) -> str:
+        """Return a writable copy of the cookies file, since yt-dlp tries to write to it."""
+        if not self.youtube_cookies_file:
+            return ""
+            
+        import os
+        import shutil
+        import tempfile
+        
+        if not os.path.exists(self.youtube_cookies_file):
+            return self.youtube_cookies_file
+            
+        cached_copy = os.path.join(tempfile.gettempdir(), "musicbox_cookies.txt")
+        try:
+            shutil.copy2(self.youtube_cookies_file, cached_copy)
+            return cached_copy
+        except Exception:
+            return self.youtube_cookies_file
+
 
 @lru_cache
 def get_settings() -> Settings:

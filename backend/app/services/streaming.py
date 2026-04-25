@@ -54,8 +54,8 @@ def get_audio_stream_url(video_id: str) -> tuple[str, str]:
         "ffmpeg_location": ffmpeg_binary,
     }
 
-    if settings.youtube_cookies_file:
-        ydl_opts["cookiefile"] = settings.youtube_cookies_file
+    if settings.writable_cookies_file:
+        ydl_opts["cookiefile"] = settings.writable_cookies_file
 
     source_url = f"https://www.youtube.com/watch?v={video_id}"
 

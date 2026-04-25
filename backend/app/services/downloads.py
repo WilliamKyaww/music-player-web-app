@@ -415,8 +415,8 @@ class DownloadManager:
             ],
         }
 
-        if self.settings.youtube_cookies_file:
-            ydl_opts["cookiefile"] = self.settings.youtube_cookies_file
+        if self.settings.writable_cookies_file:
+            ydl_opts["cookiefile"] = self.settings.writable_cookies_file
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([self._jobs[job_id].source_url])
