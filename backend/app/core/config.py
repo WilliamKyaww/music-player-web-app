@@ -39,6 +39,7 @@ class Settings(BaseSettings):
         alias="EXPORTS_DIR",
     )
     max_concurrent_downloads: int = Field(default=2, alias="MAX_CONCURRENT_DOWNLOADS")
+    youtube_cookies_file: str = Field(default="", alias="YOUTUBE_COOKIES_FILE")
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
