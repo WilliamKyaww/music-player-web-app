@@ -1,10 +1,19 @@
+import base64
+import binascii
+import secrets
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
 
 from app.api.router import api_router
 from app.core.config import get_settings
 
 settings = get_settings()
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(
     title=settings.app_name,
@@ -26,9 +35,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def optional_basic_auth(request: Request, call_next):
+    if not settings.basic_auth_username or not settings.basic_auth_password:
+        return await call_next(request)
+
+    if request.url.path == "/api/health":
+        return await call_next(request)
+
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+
+    if scheme.lower() == "basic" and token:
+        try:
+            decoded = base64.b64decode(token).decode("utf-8")
+            username, _, password = decoded.partition(":")
+        except (binascii.Error, UnicodeDecodeError):
+            username = ""
+            password = ""
+
+        username_matches = secrets.compare_digest(username, settings.basic_auth_username)
+        password_matches = secrets.compare_digest(password, settings.basic_auth_password)
+
+        if username_matches and password_matches:
+            return await call_next(request)
+
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="MusicBox"'},
+    )
+
 app.include_router(api_router, prefix="/api")
 
 
 @app.get("/api/health")
 async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

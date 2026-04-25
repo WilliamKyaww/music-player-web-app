@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: musicbox
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: FRONTEND_ORIGIN
+        value: https://musicbox.onrender.com
+      - key: MUSICBOX_AUTH_USERNAME
+        sync: false
+      - key: MUSICBOX_AUTH_PASSWORD
+        sync: false
+      - key: DOWNLOADS_DIR
+        value: /app/data/downloads
+      - key: PLAYLISTS_DIR
+        value: /app/data/playlists
+      - key: EXPORTS_DIR
+        value: /app/data/exports
+      - key: FFMPEG_BINARY
+        value: ffmpeg
+      - key: MAX_CONCURRENT_DOWNLOADS
+        value: 1
+      - key: YOUTUBE_SEARCH_CACHE_TTL_SECONDS
+        value: 300

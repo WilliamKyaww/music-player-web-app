@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     youtube_api_key: str = Field(default="", alias="YOUTUBE_API_KEY")
     spotify_client_id: str = Field(default="", alias="SPOTIFY_CLIENT_ID")
     spotify_client_secret: str = Field(default="", alias="SPOTIFY_CLIENT_SECRET")
+    basic_auth_username: str = Field(default="", alias="MUSICBOX_AUTH_USERNAME")
+    basic_auth_password: str = Field(default="", alias="MUSICBOX_AUTH_PASSWORD")
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_default_max_results: int = 12
     request_timeout_seconds: float = 15.0
