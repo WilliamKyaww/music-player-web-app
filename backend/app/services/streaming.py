@@ -57,6 +57,13 @@ def get_audio_stream_url(video_id: str) -> tuple[str, str]:
     if settings.youtube_cookies_file:
         ydl_opts["cookiefile"] = settings.youtube_cookies_file
 
+    if settings.po_token_server_url:
+        ydl_opts["extractor_args"] = {
+            "youtubepot-bgutilhttp": {
+                "base_url": [settings.po_token_server_url],
+            },
+        }
+
     source_url = f"https://www.youtube.com/watch?v={video_id}"
 
     try:

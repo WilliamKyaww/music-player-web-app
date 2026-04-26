@@ -27,3 +27,5 @@ services:
         value: 1
       - key: YOUTUBE_SEARCH_CACHE_TTL_SECONDS
         value: 300
+      - key: PO_TOKEN_SERVER_URL
+        value: http://127.0.0.1:4416

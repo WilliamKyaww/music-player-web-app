@@ -418,6 +418,13 @@ class DownloadManager:
         if self.settings.youtube_cookies_file:
             ydl_opts["cookiefile"] = self.settings.youtube_cookies_file
 
+        if self.settings.po_token_server_url:
+            ydl_opts["extractor_args"] = {
+                "youtubepot-bgutilhttp": {
+                    "base_url": [self.settings.po_token_server_url],
+                },
+            }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([self._jobs[job_id].source_url])
 

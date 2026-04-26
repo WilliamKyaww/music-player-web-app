@@ -44,6 +44,13 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
     if settings.youtube_cookies_file:
         options["cookiefile"] = settings.youtube_cookies_file
 
+    if settings.po_token_server_url:
+        options["extractor_args"] = {
+            "youtubepot-bgutilhttp": {
+                "base_url": [settings.po_token_server_url],
+            },
+        }
+
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(normalized_url, download=False)
 

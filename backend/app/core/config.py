@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     )
     max_concurrent_downloads: int = Field(default=2, alias="MAX_CONCURRENT_DOWNLOADS")
     youtube_cookies_file: str = Field(default="", alias="YOUTUBE_COOKIES_FILE")
+    po_token_server_url: str = Field(default="http://127.0.0.1:4416", alias="PO_TOKEN_SERVER_URL")
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
