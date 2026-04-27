@@ -1,4 +1,4 @@
-import { apiFetchJson, apiFetchVoid, getApiHref } from './client'
+import { apiFetchJson, apiFetchVoid } from './client'
 import type { DiscordPresenceStatus } from '../types'
 
 export type DiscordPresenceActivityPayload = {
@@ -35,7 +35,24 @@ export async function clearDiscordPresenceActivity() {
   })
 }
 
-export function getDiscordPresenceThumbnailHref(videoId: string) {
-  const path = `/api/discord-presence/thumbnails/${encodeURIComponent(videoId)}`
-  return new URL(getApiHref(path), window.location.origin).toString()
+export function getDiscordPresenceThumbnailHref(
+  videoId: string,
+  thumbnailUrl?: string | null,
+) {
+  const fallbackUrl = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`
+  const sourceUrl = thumbnailUrl?.trim().startsWith('http')
+    ? thumbnailUrl.trim()
+    : fallbackUrl
+
+  const proxiedSource = sourceUrl.replace(/^https?:\/\//i, '')
+  const params = new URLSearchParams({
+    url: proxiedSource,
+    w: '512',
+    h: '512',
+    fit: 'cover',
+    a: 'attention',
+    output: 'jpg',
+  })
+
+  return `https://wsrv.nl/?${params.toString()}`
 }

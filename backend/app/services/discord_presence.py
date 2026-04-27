@@ -157,13 +157,7 @@ class DiscordPresenceManager:
                 self._active = False
                 return self._build_status()
 
-            subtitle_parts = []
-            if activity.channel_title:
-                subtitle_parts.append(activity.channel_title)
-            if activity.is_playlist_playback and activity.playlist_name:
-                subtitle_parts.append(f'Playlist: {activity.playlist_name}')
-
-            state_text = " | ".join(subtitle_parts) or "MusicBox"
+            state_text = activity.channel_title or activity.playlist_name or "MusicBox"
             details_text = _truncate(activity.title)
 
             payload: dict[str, object] = {
@@ -172,7 +166,6 @@ class DiscordPresenceManager:
                 "state": _truncate(
                     f"Paused | {state_text}" if not activity.is_playing else state_text,
                 ),
-                "large_text": "MusicBox",
             }
 
             if ActivityType is not None:
@@ -183,7 +176,6 @@ class DiscordPresenceManager:
 
             if activity.thumbnail_url:
                 payload["large_image"] = activity.thumbnail_url
-                payload["large_text"] = details_text
 
             if activity.source_url:
                 payload["buttons"] = [
