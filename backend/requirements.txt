@@ -5,3 +5,4 @@ uvicorn[standard]
 yt-dlp
 bgutil-ytdlp-pot-provider
 pypresence
+pillow

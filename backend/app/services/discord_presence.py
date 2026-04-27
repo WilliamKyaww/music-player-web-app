@@ -13,8 +13,11 @@ from app.models.discord_presence import (
 
 try:
     from pypresence import AioPresence
+    from pypresence.types import ActivityType, StatusDisplayType
 except ImportError:  # pragma: no cover - dependency is expected in normal runtime
     AioPresence = None
+    ActivityType = None
+    StatusDisplayType = None
 
 
 def _truncate(value: str, max_length: int = 128) -> str:
@@ -164,12 +167,19 @@ class DiscordPresenceManager:
             details_text = _truncate(activity.title)
 
             payload: dict[str, object] = {
+                "name": "MusicBox",
                 "details": details_text,
                 "state": _truncate(
                     f"Paused | {state_text}" if not activity.is_playing else state_text,
                 ),
                 "large_text": "MusicBox",
             }
+
+            if ActivityType is not None:
+                payload["activity_type"] = ActivityType.LISTENING
+
+            if StatusDisplayType is not None:
+                payload["status_display_type"] = StatusDisplayType.NAME
 
             if activity.thumbnail_url:
                 payload["large_image"] = activity.thumbnail_url

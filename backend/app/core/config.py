@@ -43,6 +43,10 @@ class Settings(BaseSettings):
         default=BACKEND_DIR / "data" / "exports",
         alias="EXPORTS_DIR",
     )
+    discord_thumbnails_dir: Path = Field(
+        default=BACKEND_DIR / "data" / "discord-thumbnails",
+        alias="DISCORD_THUMBNAILS_DIR",
+    )
     max_concurrent_downloads: int = Field(default=2, alias="MAX_CONCURRENT_DOWNLOADS")
     youtube_cookies_file: str = Field(default="", alias="YOUTUBE_COOKIES_FILE")
     po_token_server_url: str = Field(default="http://127.0.0.1:4416", alias="PO_TOKEN_SERVER_URL")

@@ -1,4 +1,4 @@
-import { apiFetchJson, apiFetchVoid } from './client'
+import { apiFetchJson, apiFetchVoid, getApiHref } from './client'
 import type { DiscordPresenceStatus } from '../types'
 
 export type DiscordPresenceActivityPayload = {
@@ -33,4 +33,9 @@ export async function clearDiscordPresenceActivity() {
   return apiFetchVoid('/api/discord-presence/activity', {
     method: 'DELETE',
   })
+}
+
+export function getDiscordPresenceThumbnailHref(videoId: string) {
+  const path = `/api/discord-presence/thumbnails/${encodeURIComponent(videoId)}`
+  return new URL(getApiHref(path), window.location.origin).toString()
 }
