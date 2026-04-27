@@ -39,10 +39,13 @@ export function getDiscordPresenceThumbnailHref(
   videoId: string,
   thumbnailUrl?: string | null,
 ) {
-  const fallbackUrl = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`
-  const sourceUrl = thumbnailUrl?.trim().startsWith('http')
-    ? thumbnailUrl.trim()
-    : fallbackUrl
+  const encodedVideoId = encodeURIComponent(videoId)
+  const youtubeWidePreviewUrl = `https://i.ytimg.com/vi/${encodedVideoId}/mqdefault.jpg`
+  const sourceUrl = videoId
+    ? youtubeWidePreviewUrl
+    : thumbnailUrl?.trim().startsWith('http')
+      ? thumbnailUrl.trim()
+      : ''
 
   const proxiedSource = sourceUrl.replace(/^https?:\/\//i, '')
   const params = new URLSearchParams({
