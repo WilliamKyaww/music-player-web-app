@@ -52,7 +52,7 @@ class DiscordPresenceManager:
 
     @property
     def configured(self) -> bool:
-        return bool(self._settings.discord_client_id)
+        return bool(self._get_client_id())
 
     @property
     def available(self) -> bool:
@@ -60,6 +60,17 @@ class DiscordPresenceManager:
 
     def get_status(self) -> DiscordPresenceStatus:
         return self._build_status()
+
+    def _get_client_id(self) -> str:
+        return self._settings.discord_client_id.strip()
+
+    def _validate_client_id(self) -> str:
+        client_id = self._get_client_id()
+        if not client_id:
+            raise RuntimeError("DISCORD_CLIENT_ID is not configured.")
+        if not client_id.isdigit():
+            raise RuntimeError("DISCORD_CLIENT_ID must contain only digits.")
+        return client_id
 
     def _create_presence_loop(self) -> asyncio.AbstractEventLoop:
         proactor_loop = getattr(asyncio, "ProactorEventLoop", None)
@@ -97,7 +108,11 @@ class DiscordPresenceManager:
     async def _run_on_presence_loop(self, coro: object) -> object:
         loop = self._ensure_worker_loop()
         future = asyncio.run_coroutine_threadsafe(coro, loop)
-        return await asyncio.wrap_future(future)
+        try:
+            return await asyncio.wait_for(asyncio.wrap_future(future), timeout=8)
+        except TimeoutError:
+            future.cancel()
+            raise RuntimeError("Discord Presence did not respond in time.") from None
 
     async def _connect_rpc(self) -> None:
         if self._connected and self._rpc is not None:
@@ -107,7 +122,11 @@ class DiscordPresenceManager:
             raise RuntimeError("pypresence is not installed.")
 
         try:
-            self._rpc = AioPresence(self._settings.discord_client_id)
+            self._rpc = AioPresence(
+                self._validate_client_id(),
+                connection_timeout=5,
+                response_timeout=5,
+            )
             await self._rpc.connect()
         except Exception:
             self._rpc = None
