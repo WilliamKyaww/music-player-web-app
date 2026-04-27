@@ -37,8 +37,9 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
     options = {
         "extract_flat": True,
         "skip_download": True,
-        "quiet": True,
-        "no_warnings": True,
+        "quiet": False,
+        "no_warnings": False,
+        "verbose": True,
     }
 
     if settings.youtube_cookies_file:
@@ -46,6 +47,9 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
 
     if settings.po_token_server_url:
         options["extractor_args"] = {
+            "youtube": {
+                "player_client": ["default"],
+            },
             "youtubepot-bgutilhttp": {
                 "base_url": [settings.po_token_server_url],
             },

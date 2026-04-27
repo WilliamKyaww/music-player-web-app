@@ -402,8 +402,9 @@ class DownloadManager:
             "format": "bestaudio/best",
             "outtmpl": output_template,
             "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
+            "quiet": False,
+            "no_warnings": False,
+            "verbose": True,
             "ffmpeg_location": ffmpeg_binary,
             "progress_hooks": [progress_hook],
             "postprocessors": [
@@ -420,6 +421,9 @@ class DownloadManager:
 
         if self.settings.po_token_server_url:
             ydl_opts["extractor_args"] = {
+                "youtube": {
+                    "player_client": ["default"],
+                },
                 "youtubepot-bgutilhttp": {
                     "base_url": [self.settings.po_token_server_url],
                 },
