@@ -2,6 +2,7 @@
 
 MusicBox is a personal, self-hosted music tool that searches YouTube, queues MP3 downloads locally, and grows into playlist management and local playback over time.
 
+Warning: vibe coded
 
 ## Repo structure
 
