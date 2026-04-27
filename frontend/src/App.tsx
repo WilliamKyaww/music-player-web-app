@@ -12,10 +12,7 @@ import {
   fetchExports,
   removeExport,
 } from './api/exports'
-import {
-  fetchDiscordPresenceStatus,
-  getDiscordPresenceThumbnailHref,
-} from './api/discordPresence'
+import { fetchDiscordPresenceStatus } from './api/discordPresence'
 import {
   addVideoToPlaylist,
   createPlaylist,
@@ -1037,7 +1034,7 @@ function App() {
       ? playlists.find((playlist) => playlist.id === playerSession.playlistId)?.name ?? null
       : null
   const currentTrackDiscordThumbnailUrl = currentTrack
-    ? getDiscordPresenceThumbnailHref(currentTrack.videoId)
+    ? getPlaylistSafeThumbnailUrl(currentTrack)
     : null
 
   async function handleAddCurrentTrackToPlaylists(playlistIds: string[]) {
