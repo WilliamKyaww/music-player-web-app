@@ -135,3 +135,12 @@ export type SpotifyPlaylistPreview = {
   total_tracks: number
   preview_tracks: SpotifyPreviewTrack[]
 }
+
+export type DiscordPresenceStatus = {
+  enabled: boolean
+  configured: boolean
+  available: boolean
+  connected: boolean
+  active: boolean
+  last_error: string | null
+}

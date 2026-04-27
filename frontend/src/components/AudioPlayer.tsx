@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  clearDiscordPresenceActivity,
+  updateDiscordPresenceActivity,
+} from '../api/discordPresence'
+import {
   NextIcon,
   PauseIcon,
   PlayIcon,
@@ -19,7 +23,11 @@ type AudioPlayerProps = {
   videoId: string | null
   title: string | null
   thumbnailUrl: string | null
+  channelTitle: string | null
+  sourceUrl: string | null
+  playlistName: string | null
   streamUrl: string | null
+  discordPresenceEnabled: boolean
   isPlaylistPlayback: boolean
   canGoPrevious: boolean
   canGoNext: boolean
@@ -42,7 +50,11 @@ export function AudioPlayer({
   videoId,
   title,
   thumbnailUrl,
+  channelTitle,
+  sourceUrl,
+  playlistName,
   streamUrl,
+  discordPresenceEnabled,
   isPlaylistPlayback,
   canGoPrevious,
   canGoNext,
@@ -61,6 +73,7 @@ export function AudioPlayer({
   onClose,
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
+  const lastPresenceKeyRef = useRef<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -86,6 +99,60 @@ export function AudioPlayer({
     if (!audio) return
     audio.volume = volume
   }, [volume])
+
+  useEffect(() => {
+    if (!discordPresenceEnabled || !videoId || !title) {
+      lastPresenceKeyRef.current = null
+      return
+    }
+
+    const presenceKey = [
+      videoId,
+      isPlaying ? 'playing' : 'paused',
+      currentTime > 0 ? Math.floor(currentTime / 15) : 0,
+      duration > 0 ? Math.floor(duration) : 0,
+      playlistName ?? '',
+    ].join(':')
+
+    if (lastPresenceKeyRef.current === presenceKey) {
+      return
+    }
+
+    lastPresenceKeyRef.current = presenceKey
+
+    void updateDiscordPresenceActivity({
+      video_id: videoId,
+      title,
+      channel_title: channelTitle,
+      playlist_name: playlistName,
+      source_url: sourceUrl,
+      is_playing: isPlaying,
+      is_playlist_playback: isPlaylistPlayback,
+      position_seconds: Math.max(0, Math.floor(currentTime)),
+      duration_seconds: duration > 0 ? Math.floor(duration) : null,
+    }).catch(() => {})
+  }, [
+    channelTitle,
+    currentTime,
+    discordPresenceEnabled,
+    duration,
+    isPlaying,
+    isPlaylistPlayback,
+    playlistName,
+    sourceUrl,
+    title,
+    videoId,
+  ])
+
+  useEffect(() => {
+    return () => {
+      if (!discordPresenceEnabled) {
+        return
+      }
+
+      void clearDiscordPresenceActivity().catch(() => {})
+    }
+  }, [discordPresenceEnabled])
 
   function handlePlayPause() {
     const audio = audioRef.current

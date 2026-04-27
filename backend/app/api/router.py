@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.discord_presence import router as discord_presence_router
 from app.api.downloads import router as downloads_router
 from app.api.exports import router as exports_router
 from app.api.playlists import router as playlists_router
@@ -10,6 +11,7 @@ from app.api.youtube_playlists import router as youtube_playlists_router
 
 api_router = APIRouter()
 api_router.include_router(search_router, tags=["search"])
+api_router.include_router(discord_presence_router, tags=["discord-presence"])
 api_router.include_router(downloads_router, tags=["downloads"])
 api_router.include_router(exports_router, tags=["exports"])
 api_router.include_router(playlists_router, tags=["playlists"])

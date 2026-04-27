@@ -11,6 +11,7 @@ import {
   fetchExports,
   removeExport,
 } from './api/exports'
+import { fetchDiscordPresenceStatus } from './api/discordPresence'
 import {
   addVideoToPlaylist,
   createPlaylist,
@@ -35,6 +36,7 @@ import { VideoCard } from './components/VideoCard'
 import { YouTubePlaylistDownloadPanel } from './components/YouTubePlaylistDownloadPanel'
 import type {
   DownloadJob,
+  DiscordPresenceStatus,
   DownloadRuntimeStatus,
   Playlist,
   PlaylistExportFormat,
@@ -98,6 +100,8 @@ function App() {
   const [pendingDownloadRenameIds, setPendingDownloadRenameIds] = useState<string[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [exportJobs, setExportJobs] = useState<PlaylistExportJob[]>([])
+  const [discordPresenceStatus, setDiscordPresenceStatus] =
+    useState<DiscordPresenceStatus | null>(null)
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
   const [playlistsErrorMessage, setPlaylistsErrorMessage] = useState<string | null>(
     null,
@@ -388,6 +392,28 @@ function App() {
 
       startTransition(() => {
         setExportsErrorMessage(message)
+      })
+    }
+  })
+
+  const loadDiscordPresenceStatus = useEffectEvent(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetchDiscordPresenceStatus()
+
+      if (signal?.aborted) {
+        return
+      }
+
+      startTransition(() => {
+        setDiscordPresenceStatus(response)
+      })
+    } catch {
+      if (signal?.aborted) {
+        return
+      }
+
+      startTransition(() => {
+        setDiscordPresenceStatus(null)
       })
     }
   })
@@ -738,6 +764,15 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadDiscordPresenceStatus(controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
   const hasActiveDownloads = downloadJobs.some((job) =>
     ['queued', 'downloading', 'converting'].includes(job.status),
   )
@@ -965,6 +1000,10 @@ function App() {
     playlists.find((playlist) => playlist.id === activePlaylistId) ?? playlists[0] ?? null
   const currentTrack = playerSession?.tracks[playerSession.index] ?? null
   const isPlaylistPlayback = playerSession?.source === 'playlist'
+  const currentPlaybackPlaylistName =
+    playerSession?.source === 'playlist'
+      ? playlists.find((playlist) => playlist.id === playerSession.playlistId)?.name ?? null
+      : null
 
   async function handleAddCurrentTrackToPlaylists(playlistIds: string[]) {
     if (!currentTrack) {
@@ -1170,7 +1209,15 @@ function App() {
         videoId={currentTrack?.videoId ?? null}
         title={currentTrack?.title ?? null}
         thumbnailUrl={currentTrack?.thumbnailUrl ?? null}
+        channelTitle={currentTrack?.channelTitle ?? null}
+        sourceUrl={currentTrack?.sourceUrl ?? null}
+        playlistName={currentPlaybackPlaylistName}
         streamUrl={currentTrack ? getStreamUrl(currentTrack.videoId) : null}
+        discordPresenceEnabled={Boolean(
+          discordPresenceStatus?.enabled &&
+            discordPresenceStatus?.configured &&
+            discordPresenceStatus?.available,
+        )}
         isPlaylistPlayback={isPlaylistPlayback}
         canGoPrevious={Boolean(playerSession && playerSession.index > 0)}
         canGoNext={Boolean(
