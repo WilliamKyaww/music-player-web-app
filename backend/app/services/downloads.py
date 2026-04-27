@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 import mimetypes
 import re
@@ -94,6 +95,10 @@ def _sanitize_filename(value: str) -> str:
         return "download"
 
     return cleaned[:120]
+
+
+def _decode_text(value: str) -> str:
+    return html.unescape(value)
 
 
 class DownloadManager:
@@ -246,6 +251,48 @@ class DownloadManager:
 
             return job_id, deleted_file
 
+    def redownload_job(self, job_id: str) -> tuple[DownloadJob, bool]:
+        runtime = self.get_runtime_status()
+        if not runtime.available:
+            raise DownloadRuntimeError(
+                "Download prerequisites are missing. "
+                + " ".join(runtime.missing_dependencies)
+            )
+
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+
+            if job.status in ACTIVE_JOB_STATUSES:
+                return job.to_public_model(), True
+
+            if job.status != "failed":
+                raise DownloadRuntimeError("Only failed downloads can be redownloaded.")
+
+            existing_job_id = self._active_jobs_by_video_id.get(job.video_id)
+            if existing_job_id:
+                return self._jobs[existing_job_id].to_public_model(), True
+
+            job_dir = self.settings.downloads_dir / job.id
+            if job_dir.exists():
+                shutil.rmtree(job_dir, ignore_errors=True)
+
+            job.status = "queued"
+            job.status_detail = "Waiting for an available worker slot."
+            job.progress_percent = 0
+            job.error_message = None
+            job.file_name = None
+            job.file_size_bytes = None
+            job.file_path = None
+            job.thumbnail_path = None
+            job.updated_at = _utc_now()
+            self._active_jobs_by_video_id[job.video_id] = job.id
+            self._persist_registry_unlocked()
+
+        asyncio.create_task(self._run_job(job_id))
+        return job.to_public_model(), False
+
     def ensure_download_sync(self, request: DownloadRequest, *, timeout_seconds: int = 900) -> DownloadJob:
         existing_completed = self.find_completed_job_for_video(request.video_id)
         if existing_completed is not None:
@@ -264,8 +311,8 @@ class DownloadManager:
                 record = _DownloadRecord(
                     id=job_id,
                     video_id=request.video_id,
-                    title=request.title or request.video_id,
-                    channel_title=request.channel_title,
+                    title=_decode_text(request.title or request.video_id),
+                    channel_title=_decode_text(request.channel_title),
                     thumbnail_url=str(request.thumbnail_url) if request.thumbnail_url else None,
                     source_url=source_url,
                     status="queued",
@@ -305,8 +352,8 @@ class DownloadManager:
             record = _DownloadRecord(
                 id=job_id,
                 video_id=request.video_id,
-                title=request.title or request.video_id,
-                channel_title=request.channel_title,
+                title=_decode_text(request.title or request.video_id),
+                channel_title=_decode_text(request.channel_title),
                 thumbnail_url=str(request.thumbnail_url) if request.thumbnail_url else None,
                 source_url=source_url,
                 status="queued",
@@ -500,6 +547,14 @@ class DownloadManager:
 
         return matches[0]
 
+    @staticmethod
+    def _locate_thumbnail_file(job_dir: Path) -> Path | None:
+        for candidate in sorted(job_dir.glob("thumbnail.*")):
+            if candidate.is_file():
+                return candidate
+
+        return None
+
     def _download_thumbnail(self, job_id: str, job_dir: Path) -> Path | None:
         with self._lock:
             job = self._jobs.get(job_id)
@@ -533,7 +588,7 @@ class DownloadManager:
 
     @staticmethod
     def _normalize_title(title: str) -> str:
-        normalized = " ".join(title.split()).strip()
+        normalized = " ".join(_decode_text(title).split()).strip()
         if not normalized:
             raise DownloadRuntimeError("Saved song title cannot be empty.")
 
@@ -587,20 +642,45 @@ class DownloadManager:
                 job.updated_at = _utc_now()
 
             if job.status == "completed" and job.file_path and not job.file_path.exists():
-                job.status = "failed"
-                job.status_detail = "Recorded MP3 file is missing."
-                job.error_message = "The saved MP3 file could not be found on disk."
-                job.file_name = None
-                job.file_size_bytes = None
-                job.file_path = None
-                job.thumbnail_path = None
-                job.progress_percent = 0
-                job.updated_at = _utc_now()
+                if not self._repair_job_file_from_folder(job):
+                    job.status = "failed"
+                    job.status_detail = "Recorded MP3 file is missing."
+                    job.error_message = "The saved MP3 file could not be found on disk."
+                    job.file_name = None
+                    job.file_size_bytes = None
+                    job.file_path = None
+                    job.thumbnail_path = None
+                    job.progress_percent = 0
+                    job.updated_at = _utc_now()
+
+            if (
+                job.status == "failed"
+                and not job.file_path
+                and job.error_message == "The saved MP3 file could not be found on disk."
+            ):
+                self._repair_job_file_from_folder(job)
 
             self._jobs[job.id] = job
 
         with self._lock:
             self._persist_registry_unlocked()
+
+    def _repair_job_file_from_folder(self, job: _DownloadRecord) -> bool:
+        job_dir = self.settings.downloads_dir / job.id
+        final_file = self._locate_final_file(job_dir)
+        if final_file is None:
+            return False
+
+        job.status = "completed"
+        job.status_detail = "MP3 is ready to save."
+        job.error_message = None
+        job.progress_percent = 100
+        job.file_path = final_file
+        job.file_name = final_file.name
+        job.file_size_bytes = final_file.stat().st_size
+        job.thumbnail_path = self._locate_thumbnail_file(job_dir)
+        job.updated_at = _utc_now()
+        return True
 
     def _persist_registry_unlocked(self) -> None:
         payload = [self._serialize_job(job) for job in self._jobs.values()]
@@ -638,8 +718,8 @@ class DownloadManager:
         return _DownloadRecord(
             id=str(payload["id"]),
             video_id=str(payload["video_id"]),
-            title=str(payload["title"]),
-            channel_title=str(payload.get("channel_title", "")),
+            title=_decode_text(str(payload["title"])),
+            channel_title=_decode_text(str(payload.get("channel_title", ""))),
             thumbnail_url=str(payload["thumbnail_url"]) if payload.get("thumbnail_url") else None,
             source_url=str(payload["source_url"]),
             status=str(payload["status"]),

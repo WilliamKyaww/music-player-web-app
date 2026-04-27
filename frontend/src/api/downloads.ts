@@ -43,6 +43,15 @@ export async function renameDownload(downloadId: string, title: string) {
   })
 }
 
+export async function redownloadDownload(downloadId: string) {
+  return apiFetchJson<EnqueueDownloadResponse>(
+    `/api/downloads/${downloadId}/redownload`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
 export function getDownloadFileHref(downloadId: string) {
   return getApiHref(`/api/downloads/${downloadId}/file`)
 }

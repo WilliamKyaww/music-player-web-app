@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   enqueueDownload,
   fetchDownloads,
+  redownloadDownload,
   removeDownload,
   renameDownload,
 } from './api/downloads'
@@ -98,6 +99,7 @@ function App() {
   const [pendingDownloadVideoIds, setPendingDownloadVideoIds] = useState<string[]>([])
   const [pendingDownloadRemovalIds, setPendingDownloadRemovalIds] = useState<string[]>([])
   const [pendingDownloadRenameIds, setPendingDownloadRenameIds] = useState<string[]>([])
+  const [pendingRedownloadIds, setPendingRedownloadIds] = useState<string[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [exportJobs, setExportJobs] = useState<PlaylistExportJob[]>([])
   const [discordPresenceStatus, setDiscordPresenceStatus] =
@@ -310,6 +312,33 @@ function App() {
           current.filter((id) => id !== job.id),
         )
       }
+  }
+
+  async function handleRedownload(job: DownloadJob) {
+    setPendingRedownloadIds((current) =>
+      current.includes(job.id) ? current : [...current, job.id],
+    )
+
+    try {
+      const response = await redownloadDownload(job.id)
+      startTransition(() => {
+        setDownloadJobs((current) => {
+          const remaining = current.filter((item) => item.id !== response.job.id)
+          return [response.job, ...remaining]
+        })
+        setDownloadsErrorMessage(null)
+      })
+      pushToast(`Queued "${response.job.title}" for redownload.`)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not redownload this song.'
+
+      startTransition(() => {
+        setDownloadsErrorMessage(message)
+      })
+    } finally {
+      setPendingRedownloadIds((current) => current.filter((id) => id !== job.id))
+    }
   }
 
   async function handleRenameDownload(job: DownloadJob, title: string) {
@@ -1150,10 +1179,12 @@ function App() {
             errorMessage={downloadsErrorMessage}
             pendingRemovalIds={pendingDownloadRemovalIds}
             pendingRenameIds={pendingDownloadRenameIds}
+            pendingRedownloadIds={pendingRedownloadIds}
             pendingPlaylistVideoId={pendingPlaylistVideoId}
             playlists={playlists}
             activePlaylistId={activePlaylist?.id ?? null}
             onRemoveJob={handleRemoveDownload}
+            onRedownload={handleRedownload}
             onRenameJob={handleRenameDownload}
             onAddToPlaylists={handleAddDownloadToPlaylists}
             onPlay={handlePlayDownload}

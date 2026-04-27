@@ -1,3 +1,4 @@
+import html
 import json
 import threading
 from dataclasses import dataclass, field
@@ -18,6 +19,11 @@ PLAYLISTS_REGISTRY_FILENAME = "playlists.json"
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _decode_text(value: object, fallback: str = "") -> str:
+    text = str(value if value is not None else fallback)
+    return html.unescape(text)
 
 
 class PlaylistError(RuntimeError):
@@ -132,8 +138,8 @@ class PlaylistManager:
                 _PlaylistItemRecord(
                     id=uuid4().hex,
                     video_id=request.video_id,
-                    title=request.title,
-                    channel_title=request.channel_title,
+                    title=_decode_text(request.title),
+                    channel_title=_decode_text(request.channel_title),
                     thumbnail_url=(
                         str(request.thumbnail_url) if request.thumbnail_url else None
                     ),
@@ -269,8 +275,8 @@ class PlaylistManager:
                     _PlaylistItemRecord(
                         id=str(raw_item["id"]),
                         video_id=str(raw_item["video_id"]),
-                        title=str(raw_item["title"]),
-                        channel_title=str(raw_item.get("channel_title", "")),
+                        title=_decode_text(raw_item["title"]),
+                        channel_title=_decode_text(raw_item.get("channel_title", "")),
                         thumbnail_url=(
                             str(raw_item["thumbnail_url"])
                             if raw_item.get("thumbnail_url")
@@ -291,7 +297,7 @@ class PlaylistManager:
 
         return _PlaylistRecord(
             id=str(payload["id"]),
-            name=str(payload["name"]),
+            name=_decode_text(payload["name"]),
             created_at=str(payload["created_at"]),
             updated_at=str(payload["updated_at"]),
             items=items,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DownloadIcon, PencilIcon, PlayIcon, TrashIcon } from './Icons'
+import { DownloadIcon, PencilIcon, PlayIcon, RepeatIcon, TrashIcon } from './Icons'
 import { ModalDialog } from './ModalDialog'
 import { PlaylistPicker } from './PlaylistPicker'
 import { getDownloadFileHref, getDownloadThumbnailHref } from '../api/downloads'
@@ -11,10 +11,12 @@ type DownloadQueuePanelProps = {
   errorMessage: string | null
   pendingRemovalIds: string[]
   pendingRenameIds: string[]
+  pendingRedownloadIds: string[]
   pendingPlaylistVideoId: string | null
   playlists: Playlist[]
   activePlaylistId: string | null
   onRemoveJob: (job: DownloadJob, deleteFile: boolean) => void
+  onRedownload: (job: DownloadJob) => void
   onRenameJob: (job: DownloadJob, title: string) => void
   onAddToPlaylists: (job: DownloadJob, playlistIds: string[]) => void
   onPlay?: (job: DownloadJob) => void
@@ -47,10 +49,12 @@ export function DownloadQueuePanel({
   errorMessage,
   pendingRemovalIds,
   pendingRenameIds,
+  pendingRedownloadIds,
   pendingPlaylistVideoId,
   playlists,
   activePlaylistId,
   onRemoveJob,
+  onRedownload,
   onRenameJob,
   onAddToPlaylists,
   onPlay,
@@ -252,6 +256,19 @@ export function DownloadQueuePanel({
                           aria-label="Delete saved MP3"
                         >
                           <TrashIcon className="action-icon" />
+                        </button>
+                      ) : null}
+
+                      {job.status === 'failed' ? (
+                        <button
+                          type="button"
+                          className="download-job__icon-button"
+                          onClick={() => onRedownload(job)}
+                          disabled={pendingRedownloadIds.includes(job.id)}
+                          title="Redownload song"
+                          aria-label="Redownload song"
+                        >
+                          <RepeatIcon className="action-icon" />
                         </button>
                       ) : null}
 

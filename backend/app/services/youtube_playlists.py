@@ -1,3 +1,4 @@
+import html
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
@@ -9,6 +10,11 @@ from app.services.exports import ExportError
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _decode_text(value: object, fallback: str = "") -> str:
+    text = str(value if value is not None else fallback)
+    return html.unescape(text)
 
 
 @dataclass(slots=True)
@@ -62,7 +68,7 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
         raise ExportError("That YouTube playlist has no readable entries.", status_code=409)
 
     playlist_id = str(info.get("id") or "youtube-playlist")
-    playlist_title = str(info.get("title") or "YouTube playlist")
+    playlist_title = _decode_text(info.get("title"), "YouTube playlist")
     items: list[PlaylistItem] = []
 
     for index, entry in enumerate(entries):
@@ -91,8 +97,11 @@ def extract_youtube_playlist(playlist_url: str) -> YouTubePlaylistInfo:
             PlaylistItem(
                 id=f"{playlist_id}-{video_id}",
                 video_id=video_id,
-                title=str(entry.get("title") or f"Track {index + 1}"),
-                channel_title=str(entry.get("channel") or entry.get("uploader") or ""),
+                title=_decode_text(entry.get("title"), f"Track {index + 1}"),
+                channel_title=_decode_text(
+                    entry.get("channel") or entry.get("uploader"),
+                    "",
+                ),
                 thumbnail_url=thumbnail_url,
                 source_url=source_url,
                 duration_label=None,

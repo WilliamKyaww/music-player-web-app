@@ -1,3 +1,4 @@
+import html
 import threading
 import time
 import re
@@ -27,6 +28,11 @@ class YouTubeUpstreamError(RuntimeError):
     def __init__(self, message: str, status_code: int = 502) -> None:
         super().__init__(message)
         self.status_code = status_code
+
+
+def _decode_text(value: object, fallback: str = "") -> str:
+    text = str(value if value is not None else fallback)
+    return html.unescape(text)
 
 
 def _format_duration(duration_iso: str) -> str:
@@ -198,10 +204,13 @@ async def search_youtube_videos(query: str, max_results: int) -> list[VideoSearc
             results.append(
                 VideoSearchResult(
                     id=video_id,
-                    title=str(snippet.get("title", "Untitled video")),
-                    channel_title=str(snippet.get("channelTitle", "Unknown channel")),
+                    title=_decode_text(snippet.get("title"), "Untitled video"),
+                    channel_title=_decode_text(
+                        snippet.get("channelTitle"),
+                        "Unknown channel",
+                    ),
                     channel_id=str(snippet.get("channelId", "")),
-                    description=str(snippet.get("description", "")),
+                    description=_decode_text(snippet.get("description"), ""),
                     thumbnail_url=_pick_thumbnail(snippet),
                     duration_iso=duration_iso,
                     duration_label=_format_duration(duration_iso),

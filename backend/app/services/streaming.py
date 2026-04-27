@@ -1,5 +1,6 @@
 """Audio streaming service — extracts direct audio URLs via yt-dlp."""
 
+import html
 import threading
 import time
 from dataclasses import dataclass
@@ -27,6 +28,11 @@ class _CachedStreamUrl:
 _stream_cache: dict[str, _CachedStreamUrl] = {}
 _cache_lock = threading.RLock()
 CACHE_TTL_SECONDS = 3600  # 1 hour (YouTube URLs typically expire in ~6 hours)
+
+
+def _decode_text(value: object, fallback: str = "") -> str:
+    text = str(value if value is not None else fallback)
+    return html.unescape(text)
 
 
 def get_audio_stream_url(video_id: str) -> tuple[str, str]:
@@ -98,7 +104,7 @@ def get_audio_stream_url(video_id: str) -> tuple[str, str]:
     if not audio_url:
         raise StreamingError("Could not find a streamable audio URL for this video.")
 
-    title = info.get("title", video_id)
+    title = _decode_text(info.get("title"), video_id)
     duration = info.get("duration")
 
     with _cache_lock:

@@ -55,6 +55,24 @@ async def update_download(job_id: str, request: UpdateDownloadRequest) -> Downlo
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
+@router.post(
+    "/downloads/{job_id}/redownload",
+    response_model=EnqueueDownloadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def redownload_download(job_id: str) -> EnqueueDownloadResponse:
+    manager = get_download_manager()
+
+    try:
+        job, deduplicated = manager.redownload_job(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Download not found.") from exc
+    except DownloadRuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return EnqueueDownloadResponse(job=job, deduplicated=deduplicated)
+
+
 @router.delete("/downloads/{job_id}", response_model=RemoveDownloadResponse)
 async def remove_download(job_id: str, delete_file: bool = True) -> RemoveDownloadResponse:
     manager = get_download_manager()
