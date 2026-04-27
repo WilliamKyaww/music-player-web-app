@@ -4,6 +4,7 @@ import type { DiscordPresenceStatus } from '../types'
 export type DiscordPresenceActivityPayload = {
   video_id: string
   title: string
+  thumbnail_url?: string | null
   channel_title?: string | null
   playlist_name?: string | null
   source_url?: string | null

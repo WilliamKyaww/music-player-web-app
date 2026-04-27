@@ -1004,6 +1004,9 @@ function App() {
     playerSession?.source === 'playlist'
       ? playlists.find((playlist) => playlist.id === playerSession.playlistId)?.name ?? null
       : null
+  const currentTrackDiscordThumbnailUrl = currentTrack
+    ? getPlaylistSafeThumbnailUrl(currentTrack)
+    : null
 
   async function handleAddCurrentTrackToPlaylists(playlistIds: string[]) {
     if (!currentTrack) {
@@ -1209,6 +1212,7 @@ function App() {
         videoId={currentTrack?.videoId ?? null}
         title={currentTrack?.title ?? null}
         thumbnailUrl={currentTrack?.thumbnailUrl ?? null}
+        discordThumbnailUrl={currentTrackDiscordThumbnailUrl}
         channelTitle={currentTrack?.channelTitle ?? null}
         sourceUrl={currentTrack?.sourceUrl ?? null}
         playlistName={currentPlaybackPlaylistName}

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import sys
 import time
-from threading import RLock
+from threading import Event, RLock, Thread
 
 from app.core.config import get_settings
 from app.models.discord_presence import (
@@ -10,9 +12,9 @@ from app.models.discord_presence import (
 )
 
 try:
-    from pypresence import Presence
+    from pypresence import AioPresence
 except ImportError:  # pragma: no cover - dependency is expected in normal runtime
-    Presence = None
+    AioPresence = None
 
 
 def _truncate(value: str, max_length: int = 128) -> str:
@@ -25,8 +27,11 @@ def _truncate(value: str, max_length: int = 128) -> str:
 class DiscordPresenceManager:
     def __init__(self) -> None:
         self._settings = get_settings()
-        self._lock = RLock()
-        self._rpc: Presence | None = None
+        self._lock = asyncio.Lock()
+        self._worker_lock = RLock()
+        self._worker_loop: asyncio.AbstractEventLoop | None = None
+        self._worker_thread: Thread | None = None
+        self._rpc: AioPresence | None = None
         self._connected = False
         self._active = False
         self._last_error: str | None = None
@@ -51,42 +56,84 @@ class DiscordPresenceManager:
 
     @property
     def available(self) -> bool:
-        return Presence is not None
+        return AioPresence is not None
 
     def get_status(self) -> DiscordPresenceStatus:
-        with self._lock:
-            return self._build_status()
+        return self._build_status()
 
-    def _ensure_connection(self) -> bool:
-        if not self.enabled or not self.configured or not self.available:
-            return False
+    def _create_presence_loop(self) -> asyncio.AbstractEventLoop:
+        proactor_loop = getattr(asyncio, "ProactorEventLoop", None)
+        if sys.platform == "win32" and proactor_loop is not None:
+            return proactor_loop()
+        return asyncio.new_event_loop()
 
+    def _ensure_worker_loop(self) -> asyncio.AbstractEventLoop:
+        with self._worker_lock:
+            if self._worker_loop is not None and self._worker_loop.is_running():
+                return self._worker_loop
+
+            loop = self._create_presence_loop()
+            ready = Event()
+
+            def run_loop() -> None:
+                asyncio.set_event_loop(loop)
+                ready.set()
+                loop.run_forever()
+
+            thread = Thread(
+                target=run_loop,
+                name="musicbox-discord-presence",
+                daemon=True,
+            )
+            thread.start()
+
+            if not ready.wait(timeout=5):
+                raise RuntimeError("Discord presence worker loop did not start.")
+
+            self._worker_loop = loop
+            self._worker_thread = thread
+            return loop
+
+    async def _run_on_presence_loop(self, coro: object) -> object:
+        loop = self._ensure_worker_loop()
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        return await asyncio.wrap_future(future)
+
+    async def _connect_rpc(self) -> None:
         if self._connected and self._rpc is not None:
-            return True
+            return
+
+        if AioPresence is None:
+            raise RuntimeError("pypresence is not installed.")
 
         try:
-            self._rpc = Presence(self._settings.discord_client_id)
-            self._rpc.connect()
-        except Exception as exc:  # pragma: no cover - depends on local Discord runtime
+            self._rpc = AioPresence(self._settings.discord_client_id)
+            await self._rpc.connect()
+        except Exception:
             self._rpc = None
             self._connected = False
-            self._last_error = str(exc)
-            return False
+            raise
 
         self._connected = True
         self._last_error = None
-        return True
 
-    def update_activity(
+    async def _update_rpc(self, payload: dict[str, object]) -> None:
+        await self._connect_rpc()
+        assert self._rpc is not None
+        await self._rpc.update(**payload)
+
+    async def _clear_rpc(self) -> None:
+        if self._rpc is not None and self._connected:
+            await self._rpc.clear()
+
+    async def update_activity(
         self,
         activity: DiscordPresenceActivityRequest,
     ) -> DiscordPresenceStatus:
-        with self._lock:
-            if not self._ensure_connection():
+        async with self._lock:
+            if not self.enabled or not self.configured or not self.available:
                 self._active = False
                 return self._build_status()
-
-            assert self._rpc is not None
 
             subtitle_parts = []
             if activity.channel_title:
@@ -104,6 +151,10 @@ class DiscordPresenceManager:
                 ),
                 "large_text": "MusicBox",
             }
+
+            if activity.thumbnail_url:
+                payload["large_image"] = activity.thumbnail_url
+                payload["large_text"] = details_text
 
             if activity.source_url:
                 payload["buttons"] = [
@@ -123,8 +174,9 @@ class DiscordPresenceManager:
                 payload.pop("buttons", None)
 
             try:
-                self._rpc.update(**payload)
+                await self._run_on_presence_loop(self._update_rpc(payload))
             except Exception as exc:  # pragma: no cover - depends on local Discord runtime
+                self._rpc = None
                 self._connected = False
                 self._active = False
                 self._last_error = str(exc)
@@ -134,16 +186,16 @@ class DiscordPresenceManager:
             self._last_error = None
             return self._build_status()
 
-    def clear_activity(self) -> DiscordPresenceStatus:
-        with self._lock:
-            if self._rpc is not None and self._connected:
-                try:
-                    self._rpc.clear()
-                except Exception as exc:  # pragma: no cover - depends on local Discord runtime
-                    self._connected = False
-                    self._last_error = str(exc)
-                    self._active = False
-                    return self._build_status()
+    async def clear_activity(self) -> DiscordPresenceStatus:
+        async with self._lock:
+            try:
+                await self._run_on_presence_loop(self._clear_rpc())
+            except Exception as exc:  # pragma: no cover - depends on local Discord runtime
+                self._rpc = None
+                self._connected = False
+                self._last_error = str(exc)
+                self._active = False
+                return self._build_status()
 
             self._active = False
             self._last_error = None

@@ -13,6 +13,7 @@ class DiscordPresenceStatus(BaseModel):
 class DiscordPresenceActivityRequest(BaseModel):
     video_id: str
     title: str
+    thumbnail_url: str | None = None
     channel_title: str | None = None
     playlist_name: str | None = None
     source_url: str | None = None

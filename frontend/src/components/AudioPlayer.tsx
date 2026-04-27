@@ -23,6 +23,7 @@ type AudioPlayerProps = {
   videoId: string | null
   title: string | null
   thumbnailUrl: string | null
+  discordThumbnailUrl: string | null
   channelTitle: string | null
   sourceUrl: string | null
   playlistName: string | null
@@ -50,6 +51,7 @@ export function AudioPlayer({
   videoId,
   title,
   thumbnailUrl,
+  discordThumbnailUrl,
   channelTitle,
   sourceUrl,
   playlistName,
@@ -123,6 +125,7 @@ export function AudioPlayer({
     void updateDiscordPresenceActivity({
       video_id: videoId,
       title,
+      thumbnail_url: discordThumbnailUrl,
       channel_title: channelTitle,
       playlist_name: playlistName,
       source_url: sourceUrl,
@@ -135,6 +138,7 @@ export function AudioPlayer({
     channelTitle,
     currentTime,
     discordPresenceEnabled,
+    discordThumbnailUrl,
     duration,
     isPlaying,
     isPlaylistPlayback,

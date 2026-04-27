@@ -20,10 +20,10 @@ async def update_discord_presence_activity(
     request: DiscordPresenceActivityRequest,
 ) -> DiscordPresenceStatus:
     manager = get_discord_presence_manager()
-    return manager.update_activity(request)
+    return await manager.update_activity(request)
 
 
 @router.delete("/discord-presence/activity", response_model=DiscordPresenceStatus)
 async def clear_discord_presence_activity() -> DiscordPresenceStatus:
     manager = get_discord_presence_manager()
-    return manager.clear_activity()
+    return await manager.clear_activity()
