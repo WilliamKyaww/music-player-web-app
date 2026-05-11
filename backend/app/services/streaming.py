@@ -61,7 +61,7 @@ def get_audio_stream_url(video_id: str) -> tuple[str, str]:
     if settings.po_token_server_url:
         ydl_opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["default"],
+                "player_client": ["web"],
             },
             "youtubepot-bgutilhttp": {
                 "base_url": [settings.po_token_server_url],
